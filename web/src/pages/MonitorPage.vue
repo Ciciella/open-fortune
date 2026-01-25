@@ -1,6 +1,6 @@
 <template>
   <div class="monitor-root">
-    <HeaderBar :stars-count="starsCount" />
+    <HeaderBar />
 
     <TickerBar :symbols="tickerSymbols" :prices="prices" />
 
@@ -71,7 +71,6 @@ import type {
 import {
 	closePosition,
 	fetchAccount,
-	fetchGitHubStars,
 	fetchHistory,
 	fetchLogs,
 	fetchPositions,
@@ -90,7 +89,6 @@ const trades = ref<TradeData[]>([]);
 const history = ref<HistoryEntry[]>([]);
 const logEntry = ref<LogEntry | null>(null);
 
-const starsCount = ref<number | null>(null);
 
 const positionsLoading = ref(true);
 const tradesLoading = ref(true);
@@ -266,10 +264,6 @@ const loadPrices = async () => {
 	}
 };
 
-const loadStars = async () => {
-	const stars = await fetchGitHubStars();
-	starsCount.value = stars ?? -1;
-};
 
 const loadInitialData = async () => {
 	await Promise.all([
@@ -302,7 +296,6 @@ const intervals: Array<() => void> = [];
 onMounted(async () => {
 	applyBodyClasses();
 	await loadInitialData();
-	loadStars();
 
 	intervals.push(
 		useIntervalFn(() => Promise.all([loadAccount(), loadPositions()]), 3000, {

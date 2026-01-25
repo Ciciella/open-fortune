@@ -156,21 +156,3 @@ export async function closePosition(symbol: string, password: string) {
 		};
 	}
 }
-
-export async function fetchGitHubStars() {
-	try {
-		const response = await fetch(
-			"https://api.github.com/repos/195440/open-nof1.ai",
-		);
-		const data = (await response.json()) as { stargazers_count?: number };
-
-		if (typeof data.stargazers_count === "number") {
-			return data.stargazers_count;
-		}
-
-		return null;
-	} catch (error) {
-		console.error("加载 GitHub 星标数失败:", error);
-		return null;
-	}
-}
