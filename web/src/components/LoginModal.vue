@@ -1,30 +1,24 @@
 <template>
-  <div class="modal" :class="{ show: modelValue }" @click="onBackdrop">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>输入平仓密码</h3>
-        <button class="modal-close" @click="close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <input
-          v-model="password"
-          type="password"
-          class="password-input"
-          placeholder="请输入平仓密码"
-          @keyup.enter="confirm"
-        />
-        <p class="modal-hint">请输入环境变量 CLOSE_POSITION_PASSWORD 配置的密码</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-cancel" @click="close">取消</button>
-        <button class="btn-confirm" @click="confirm">确认</button>
-      </div>
-    </div>
-  </div>
+  <el-dialog v-model="visible" title="输入平仓密码" width="360px" @close="close">
+    <el-input
+      v-model="password"
+      type="password"
+      placeholder="请输入平仓密码"
+      show-password
+      @keyup.enter="confirm"
+    />
+    <el-text size="small" type="info" class="hint">
+      请输入环境变量 CLOSE_POSITION_PASSWORD 配置的密码
+    </el-text>
+    <template #footer>
+      <el-button @click="close">取消</el-button>
+      <el-button type="primary" @click="confirm">确认</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 const props = defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{
@@ -33,6 +27,10 @@ const emit = defineEmits<{
 }>();
 
 const password = ref("");
+const visible = computed({
+	get: () => props.modelValue,
+	set: (value) => emit("update:modelValue", value),
+});
 
 watch(
 	() => props.modelValue,
@@ -56,10 +54,11 @@ const confirm = () => {
 	emit("confirm", trimmed);
 	emit("update:modelValue", false);
 };
-
-const onBackdrop = (event: MouseEvent) => {
-	if (event.target === event.currentTarget) {
-		close();
-	}
-};
 </script>
+
+<style scoped>
+.hint {
+  display: inline-block;
+  margin-top: 12px;
+}
+</style>

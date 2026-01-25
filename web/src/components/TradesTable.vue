@@ -1,63 +1,78 @@
 <template>
-  <section class="trades-section">
-    <h2 class="section-header">
-      交易历史
-      <span id="tradesCount">{{ trades.length ? `(${trades.length})` : '' }}</span>
-    </h2>
-    <div class="trades-container">
-      <table class="trades-table">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>币种</th>
-            <th>类型</th>
-            <th>方向</th>
-            <th>价格</th>
-            <th>数量</th>
-            <th>杠杆</th>
-            <th>手续费</th>
-            <th>盈亏</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="9" class="loading">加载中...</td>
-          </tr>
-          <tr v-else-if="trades.length === 0">
-            <td colspan="9" class="empty-state">暂无交易记录</td>
-          </tr>
-          <tr v-for="trade in trades" v-else :key="trade.timestamp + trade.symbol + trade.type">
-            <td>{{ formatTime(trade.timestamp) }}</td>
-            <td><span class="symbol">{{ trade.symbol }}</span></td>
-            <td>
-              <span class="type" :class="trade.type === 'open' ? 'buy' : 'sell'">
-                {{ trade.type === 'open' ? '开仓' : '平仓' }}
-              </span>
-            </td>
-            <td>
-              <span class="side" :class="trade.side === 'long' ? 'long' : 'short'">
-                {{ trade.side === 'long' ? '做多' : '做空' }}
-              </span>
-            </td>
-            <td>{{ trade.price.toFixed(2) }}</td>
-            <td>{{ trade.quantity }}</td>
-            <td>{{ trade.leverage }}x</td>
-            <td>{{ trade.fee.toFixed(4) }}</td>
-            <td v-html="formatPnl(trade)"></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <el-card shadow="never">
+    <template #header>
+      <el-space size="small">
+        <span>交易历史</span>
+        <el-tag v-if="trades.length" type="info" effect="plain">
+          {{ trades.length }}
+        </el-tag>
+      </el-space>
+    </template>
+    <el-table
+      :data="trades"
+      size="small"
+      v-loading="loading"
+      :empty-text="loading ? '加载中...' : '暂无交易记录'"
+    >
+      <el-table-column label="时间" width="170">
+        <template #default="{ row }">
+          {{ formatTime(row.timestamp) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="symbol" label="币种" width="90" />
+      <el-table-column label="类型" width="90">
+        <template #default="{ row }">
+          <el-tag :type="row.type === 'open' ? 'success' : 'warning'" effect="plain">
+            {{ row.type === "open" ? "开仓" : "平仓" }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="方向" width="90">
+        <template #default="{ row }">
+          <el-tag :type="sideType(row.side)" effect="plain">
+            {{ row.side === "long" ? "做多" : "做空" }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="价格">
+        <template #default="{ row }">
+          {{ row.price.toFixed(2) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="quantity" label="数量" />
+      <el-table-column label="杠杆" width="80">
+        <template #default="{ row }">
+          {{ row.leverage }}x
+        </template>
+      </el-table-column>
+      <el-table-column label="手续费">
+        <template #default="{ row }">
+          {{ row.fee.toFixed(4) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="盈亏">
+        <template #default="{ row }">
+          <el-text :type="pnlType(row)">
+            {{ formatPnl(row) }}
+          </el-text>
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-card>
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import type { TradeData } from "../services/api";
 
-defineProps<{
+const props = defineProps<{
 	trades: TradeData[];
 	loading: boolean;
+	isReversed: boolean;
 }>();
+
+const positiveType = computed(() => (props.isReversed ? "success" : "danger"));
+const negativeType = computed(() => (props.isReversed ? "danger" : "success"));
 
 const formatTime = (timestamp: string) => {
 	const date = new Date(timestamp);
@@ -73,11 +88,20 @@ const formatTime = (timestamp: string) => {
 
 const formatPnl = (trade: TradeData) => {
 	if (trade.type === "close" && trade.pnl !== null && trade.pnl !== undefined) {
-		const cls = trade.pnl >= 0 ? "profit" : "loss";
-		const value = `${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}`;
-		return `<span class="${cls}">${value}</span>`;
+		return `${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}`;
 	}
 
-	return '<span class="na">-</span>';
+	return "-";
 };
+
+const pnlType = (trade: TradeData) => {
+	if (trade.type !== "close" || trade.pnl === null || trade.pnl === undefined) {
+		return "info";
+	}
+
+	return trade.pnl >= 0 ? positiveType.value : negativeType.value;
+};
+
+const sideType = (side: TradeData["side"]) =>
+	side === "long" ? positiveType.value : negativeType.value;
 </script>

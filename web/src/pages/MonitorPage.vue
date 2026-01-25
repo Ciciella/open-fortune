@@ -1,43 +1,67 @@
 <template>
-  <div class="monitor-root">
-    <HeaderBar />
+  <el-container class="monitor-page">
+    <el-header height="auto">
+      <HeaderBar />
+    </el-header>
 
-    <TickerBar :symbols="tickerSymbols" :prices="prices" />
+    <el-main>
+      <el-space direction="vertical" size="large" fill>
+        <TickerBar :symbols="tickerSymbols" :prices="prices" />
 
-    <main class="main-content">
-      <EquityChart :history="history" />
+        <el-row :gutter="16">
+          <el-col :xs="24" :lg="16">
+            <EquityChart :history="history" />
+          </el-col>
+          <el-col :xs="24" :lg="8">
+            <AccountPanel
+              :account="account"
+              :strategy="strategy"
+              :positions="positions"
+              :is-reversed="isReversed"
+              :on-theme-change="handleThemeChange"
+            />
+          </el-col>
+        </el-row>
 
-      <DecisionPanel
-        :html="decisionHtml"
-        :time-text="decisionTime"
-        :iteration-text="decisionIteration"
-        :loading="logsLoading"
-      />
+        <el-row :gutter="16">
+          <el-col :xs="24">
+            <DecisionPanel
+              :html="decisionHtml"
+              :time-text="decisionTime"
+              :iteration-text="decisionIteration"
+              :loading="logsLoading"
+            />
+          </el-col>
+        </el-row>
 
-      <AccountPanel
-        :account="account"
-        :strategy="strategy"
-        :positions="positions"
-        :theme-label="themeLabel"
-        :toggle-theme="toggleTheme"
-      />
+        <el-row :gutter="16">
+          <el-col :xs="24">
+            <PositionsTable
+              :positions="positions"
+              :loading="positionsLoading"
+              :is-logged-in="isLoggedIn"
+              :is-closing="isClosing"
+              :is-reversed="isReversed"
+              :on-close="handleClosePosition"
+              :on-login-click="handleLoginClick"
+            />
+          </el-col>
+        </el-row>
 
-      <PositionsTable
-        :positions="positions"
-        :loading="positionsLoading"
-        :is-logged-in="isLoggedIn"
-        :is-closing="isClosing"
-        :on-close="handleClosePosition"
-        :on-login-click="handleLoginClick"
-      />
-
-      <TradesTable :trades="trades" :loading="tradesLoading" />
-    </main>
+        <el-row :gutter="16">
+          <el-col :xs="24">
+            <TradesTable
+              :trades="trades"
+              :loading="tradesLoading"
+              :is-reversed="isReversed"
+            />
+          </el-col>
+        </el-row>
+      </el-space>
+    </el-main>
 
     <LoginModal v-model="showLoginModal" @confirm="handleLogin" />
-
-    <ToastContainer :toasts="toasts" @remove="removeToast" />
-  </div>
+  </el-container>
 </template>
 
 <script setup lang="ts">
@@ -46,8 +70,9 @@ import {
 	useLocalStorage,
 	useSessionStorage,
 } from "@vueuse/core";
+import { ElMessage } from "element-plus";
 import { marked } from "marked";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AccountPanel from "../components/AccountPanel.vue";
 import DecisionPanel from "../components/DecisionPanel.vue";
 import EquityChart from "../components/EquityChart.vue";
@@ -55,10 +80,6 @@ import HeaderBar from "../components/HeaderBar.vue";
 import LoginModal from "../components/LoginModal.vue";
 import PositionsTable from "../components/PositionsTable.vue";
 import TickerBar from "../components/TickerBar.vue";
-import ToastContainer, {
-	type ToastItem,
-	type ToastType,
-} from "../components/ToastContainer.vue";
 import TradesTable from "../components/TradesTable.vue";
 import type {
 	AccountData,
@@ -101,14 +122,10 @@ const colorScheme = useLocalStorage<"default" | "reversed">(
 	"colorScheme",
 	"default",
 );
-const themeLabel = computed(() =>
-	colorScheme.value === "reversed" ? "红跌绿涨" : "红涨绿跌",
-);
+const isReversed = computed(() => colorScheme.value === "reversed");
 
 const showLoginModal = ref(false);
 const isClosing = ref(false);
-
-const toasts = ref<ToastItem[]>([]);
 
 const decisionHtml = computed(() => {
 	if (!logEntry.value) {
@@ -144,18 +161,17 @@ const decisionIteration = computed(() => {
 	return `#${logEntry.value.iteration}`;
 });
 
-const addToast = (title: string, message: string, type: ToastType = "info") => {
-	const id = `${Date.now()}-${Math.random()}`;
-	const toast: ToastItem = { id, title, message, type };
-
-	toasts.value = [...toasts.value, toast];
-
-	const timeout = type === "success" ? 3000 : 5000;
-	window.setTimeout(() => removeToast(id), timeout);
-};
-
-const removeToast = (id: string) => {
-	toasts.value = toasts.value.filter((toast) => toast.id !== id);
+const addToast = (
+	title: string,
+	message: string,
+	type: "success" | "error" | "warning" | "info" = "info",
+) => {
+	ElMessage({
+		type,
+		message: `${title}：${message}`,
+		duration: type === "success" ? 3000 : 5000,
+		showClose: true,
+	});
 };
 
 const handleLoginClick = () => {
@@ -173,8 +189,8 @@ const handleLogin = (value: string) => {
 	addToast("登录成功", "现在可以进行平仓操作了", "success");
 };
 
-const toggleTheme = () => {
-	colorScheme.value = colorScheme.value === "reversed" ? "default" : "reversed";
+const handleThemeChange = (value: boolean) => {
+	colorScheme.value = value ? "reversed" : "default";
 };
 
 const handleClosePosition = async (symbol: string) => {
@@ -277,24 +293,9 @@ const loadInitialData = async () => {
 	]);
 };
 
-const applyBodyClasses = () => {
-	const body = document.body;
-	body.classList.add("monitor-body");
-	if (colorScheme.value === "reversed") {
-		body.classList.add("color-mode-reversed");
-	} else {
-		body.classList.remove("color-mode-reversed");
-	}
-};
-
-watch(colorScheme, () => {
-	applyBodyClasses();
-});
-
 const intervals: Array<() => void> = [];
 
 onMounted(async () => {
-	applyBodyClasses();
 	await loadInitialData();
 
 	intervals.push(
@@ -312,11 +313,13 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-	document.body.classList.remove("monitor-body", "color-mode-reversed");
 	for (const pause of intervals) {
 		pause();
 	}
 });
 </script>
-
-<style src="../styles/monitor.css"></style>
+<style scoped>
+.monitor-page :deep(.el-main) {
+  padding: 16px 24px 32px;
+}
+</style>

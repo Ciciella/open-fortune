@@ -1,12 +1,16 @@
 <template>
-  <div class="ticker-wrapper">
-    <div class="ticker-content" id="ticker">
-      <div v-for="(symbol, index) in repeatedSymbols" :key="`${symbol}-${index}`" class="ticker-item">
-        <span class="crypto-name">{{ symbol }}</span>
-        <span class="crypto-price">{{ formatPrice(prices[symbol]) }}</span>
-      </div>
-    </div>
-  </div>
+  <el-card shadow="never">
+    <el-space wrap>
+      <el-tag
+        v-for="(symbol, index) in repeatedSymbols"
+        :key="`${symbol}-${index}`"
+        type="info"
+        effect="plain"
+      >
+        {{ symbol }} {{ formatPrice(prices[symbol]) }}
+      </el-tag>
+    </el-space>
+  </el-card>
 </template>
 
 <script setup lang="ts">

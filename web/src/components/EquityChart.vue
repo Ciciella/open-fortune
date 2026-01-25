@@ -1,17 +1,17 @@
 <template>
-  <section class="chart-section">
-    <div class="chart-header">
-      <h3 class="chart-title">资产曲线</h3>
-    </div>
+  <el-card shadow="never">
+    <template #header>
+      <span>资产曲线</span>
+    </template>
     <div class="chart-container">
       <canvas ref="canvasRef"></canvas>
       <div v-if="!hasData" class="no-data-overlay">
         暂无历史数据
         <br />
-        <small style="color: #008866;">系统将每10分钟自动记录账户资产</small>
+        <small class="no-data-hint">系统将每10分钟自动记录账户资产</small>
       </div>
     </div>
-  </section>
+  </el-card>
 </template>
 
 <script setup lang="ts">
@@ -176,6 +176,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.chart-container {
+  position: relative;
+  height: 320px;
+}
+
 .no-data-overlay {
   position: absolute;
   top: 50%;
@@ -183,5 +188,9 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
   color: #00cc88;
   text-align: center;
+}
+
+.no-data-hint {
+  color: #008866;
 }
 </style>

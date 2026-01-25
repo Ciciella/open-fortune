@@ -1,60 +1,64 @@
 <template>
-  <section class="account-section">
-    <div class="account-header">
-      <h2>总资产</h2>
-      <div class="theme-toggle-btn" role="button" tabindex="0" @click="toggleTheme">
-        <span>THEME: {{ themeLabel }}</span>
-      </div>
-    </div>
-    <div class="account-value">
-      <span class="currency-symbol">$</span>
-      <span class="value-amount">{{ totalValue }}</span>
-    </div>
-    <div class="value-change">
-      <span class="change-amount" :class="{ negative: totalPnl < 0 }">{{ changeAmount }}</span>
-      <span class="change-percent" :class="changePercentClass">{{ changePercent }}</span>
-    </div>
-    <div class="account-details">
-      <div class="detail-item">
-        <span class="detail-label">可用余额</span>
-        <span class="detail-value">{{ availableBalance }}</span>
-      </div>
-      <div class="detail-item">
-        <span class="detail-label">未实现盈亏</span>
-        <span class="detail-value" :class="{ positive: unrealisedPnl >= 0, negative: unrealisedPnl < 0 }">
-          {{ unrealisedPnlText }}
-        </span>
-      </div>
-      <div class="detail-item">
-        <span class="detail-label">当前策略</span>
-        <span class="detail-value strategy-value">
-          <span class="strategy-badge-inline" :class="strategyClass">{{ strategyName }}</span>
-          <span class="strategy-info-inline">{{ strategyInfo }}</span>
-        </span>
-      </div>
-    </div>
+  <el-card shadow="never">
+    <template #header>
+      <el-row justify="space-between" align="middle">
+        <span>账户概览</span>
+        <el-switch
+          :model-value="isReversed"
+          inline-prompt
+          active-text="红跌绿涨"
+          inactive-text="红涨绿跌"
+          @change="onThemeChange"
+        />
+      </el-row>
+    </template>
 
-    <div class="positions-cards">
-      <div class="positions-cards-header">
-        <span class="positions-cards-title">当前持仓</span>
-      </div>
-      <div class="positions-cards-container">
-        <div v-if="positions.length === 0" class="positions-cards-empty">暂无持仓</div>
-        <div
-          v-for="position in positions"
-          v-else
-          :key="position.symbol"
-          class="position-card"
-          :class="[position.side, position.unrealizedPnl >= 0 ? 'positive' : 'negative']"
-        >
-          <span class="position-card-symbol">{{ position.symbol }} {{ position.leverage || '-' }}x</span>
-          <span class="position-card-pnl" :class="position.unrealizedPnl >= 0 ? 'positive' : 'negative'">
-            {{ position.side === 'long' ? '多' : '空' }} {{ formatPnl(position.unrealizedPnl) }} ({{ formatPercent(position) }})
-          </span>
-        </div>
-      </div>
-    </div>
-  </section>
+    <el-statistic title="总资产 (USDT)" :value="Number(totalValue)" :precision="2" />
+    <el-space size="small" class="value-change">
+      <el-text :type="pnlType">{{ changeAmount }}</el-text>
+      <el-text :type="pnlType">{{ changePercent }}</el-text>
+    </el-space>
+
+    <el-divider />
+
+    <el-descriptions :column="1" size="small" border>
+      <el-descriptions-item label="可用余额">{{ availableBalance }}</el-descriptions-item>
+      <el-descriptions-item label="未实现盈亏">
+        <el-text :type="unrealisedType">{{ unrealisedPnlText }}</el-text>
+      </el-descriptions-item>
+      <el-descriptions-item label="当前策略">
+        <el-space size="small">
+          <el-tag type="info" effect="plain">{{ strategyName }}</el-tag>
+          <el-text size="small">{{ strategyInfo }}</el-text>
+        </el-space>
+      </el-descriptions-item>
+    </el-descriptions>
+
+    <el-divider />
+
+    <el-table :data="positions" size="small" max-height="220" empty-text="暂无持仓">
+      <el-table-column prop="symbol" label="币种" width="90" />
+      <el-table-column label="方向" width="80">
+        <template #default="{ row }">
+          <el-tag :type="sideType(row.side)" effect="plain">
+            {{ row.side === "long" ? "多" : "空" }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="杠杆" width="80">
+        <template #default="{ row }">
+          {{ row.leverage ?? "-" }}x
+        </template>
+      </el-table-column>
+      <el-table-column label="未实现盈亏">
+        <template #default="{ row }">
+          <el-text :type="pnlValueType(row.unrealizedPnl)">
+            {{ formatPnl(row.unrealizedPnl) }}
+          </el-text>
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-card>
 </template>
 
 <script setup lang="ts">
@@ -65,8 +69,8 @@ const props = defineProps<{
 	account: AccountData | null;
 	strategy: StrategyData | null;
 	positions: PositionData[];
-	themeLabel: string;
-	toggleTheme: () => void;
+	isReversed: boolean;
+	onThemeChange: (value: boolean) => void;
 }>();
 
 const totalValue = computed(() => {
@@ -108,11 +112,6 @@ const changePercent = computed(() => {
 	return `(${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%)`;
 });
 
-const changePercentClass = computed(() => ({
-	positive: totalPnl.value >= 0,
-	negative: totalPnl.value < 0,
-}));
-
 const availableBalance = computed(() =>
 	props.account ? props.account.availableBalance.toFixed(2) : "0.00",
 );
@@ -120,7 +119,6 @@ const availableBalance = computed(() =>
 const strategyName = computed(
 	() => props.strategy?.strategyName ?? "加载中...",
 );
-const strategyClass = computed(() => props.strategy?.strategy ?? "");
 
 const strategyInfo = computed(() => {
 	if (!props.strategy) {
@@ -133,13 +131,27 @@ const strategyInfo = computed(() => {
 	return `${props.strategy.intervalMinutes}分 | ${props.strategy.leverageRange} | ${props.strategy.positionSizeRange} | ${protectionMode}`;
 });
 
+const positiveType = computed(() => (props.isReversed ? "success" : "danger"));
+const negativeType = computed(() => (props.isReversed ? "danger" : "success"));
+
+const pnlType = computed(() =>
+	totalPnl.value >= 0 ? positiveType.value : negativeType.value,
+);
+const unrealisedType = computed(() =>
+	unrealisedPnl.value >= 0 ? positiveType.value : negativeType.value,
+);
+
 const formatPnl = (pnl: number) => `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}`;
 
-const formatPercent = (position: PositionData) => {
-	const percent =
-		position.openValue === 0
-			? 0
-			: (position.unrealizedPnl / position.openValue) * 100;
-	return `${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%`;
-};
+const pnlValueType = (value: number) =>
+	value >= 0 ? positiveType.value : negativeType.value;
+
+const sideType = (side: PositionData["side"]) =>
+	side === "long" ? positiveType.value : negativeType.value;
 </script>
+
+<style scoped>
+.value-change {
+  margin-top: 6px;
+}
+</style>
