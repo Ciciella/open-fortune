@@ -19,7 +19,23 @@
         </el-col>
         <el-col :xs="24" :md="12" class="nav-col">
           <div class="nav-menu">
-            <span class="nav-text">交易</span>
+            <router-link class="nav-link-btn" to="/" exact-active-class="active">
+              交易
+            </router-link>
+            <router-link
+              class="nav-link-btn"
+              to="/ai-chat"
+              exact-active-class="active"
+            >
+              AI 对话
+            </router-link>
+            <router-link
+              class="nav-link-btn"
+              to="/config"
+              exact-active-class="active"
+            >
+              配置
+            </router-link>
           </div>
         </el-col>
         <el-col :xs="24" :md="6" class="header-actions">
@@ -103,20 +119,31 @@
   justify-content: flex-start;
 }
 
-.nav-text {
+.nav-link-btn {
   font-size: 0.95rem;
   letter-spacing: 0.4px;
   font-weight: 600;
-  color: #ffffff;
+  color: #c8cdd3;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
   position: relative;
-  padding-bottom: 6px;
+  transition: color 0.2s ease;
 }
 
-.nav-text::after {
+.nav-link-btn:hover {
+  color: #ffffff;
+}
+
+.nav-link-btn.active {
+  color: #ffffff;
+}
+
+.nav-link-btn.active::after {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: 0;
+  bottom: -2px;
   width: 28px;
   height: 2px;
   transform: translateX(-50%);

@@ -1,9 +1,5 @@
 <template>
   <el-container class="monitor-page">
-    <el-header height="auto">
-      <HeaderBar />
-    </el-header>
-
     <el-main>
       <el-space direction="vertical" size="large" fill>
         <TickerBar :symbols="tickerSymbols" :prices="prices" />
@@ -76,7 +72,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AccountPanel from "../components/AccountPanel.vue";
 import DecisionPanel from "../components/DecisionPanel.vue";
 import EquityChart from "../components/EquityChart.vue";
-import HeaderBar from "../components/HeaderBar.vue";
 import LoginModal from "../components/LoginModal.vue";
 import PositionsTable from "../components/PositionsTable.vue";
 import TickerBar from "../components/TickerBar.vue";
@@ -321,10 +316,5 @@ onBeforeUnmount(() => {
 <style scoped>
 .monitor-page :deep(.el-main) {
   padding: 80px 24px 32px;
-}
-
-.monitor-page :deep(.el-header) {
-  height: 0;
-  padding: 0;
 }
 </style>
