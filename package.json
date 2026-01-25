@@ -1,0 +1,15 @@
+{
+  "name": "open-fortune-root",
+  "private": true,
+  "scripts": {
+    "lint": "npm run lint:api && npm run lint:web",
+    "lint:fix": "npm run lint:api:fix && npm run lint:web:fix",
+    "lint:api": "npm --prefix api exec biome check ./src",
+    "lint:api:fix": "npm --prefix api exec biome check --write ./src",
+    "lint:web": "npm --prefix api exec biome check ./web/src",
+    "lint:web:fix": "npm --prefix api exec biome check --write ./web/src"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  }
+}

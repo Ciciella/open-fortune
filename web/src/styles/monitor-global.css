@@ -1,0 +1,59 @@
+body.monitor-body {
+	--bg-primary: #000000;
+	--bg-secondary: #0a0a0a;
+	--bg-tertiary: #0f0f0f;
+	--text-primary: #00ffaa;
+	--text-secondary: #00cc88;
+	--text-dim: #008866;
+	--border-color: #00ffaa33;
+	--accent-green: #00ffaa;
+	--accent-red: #ff0000;
+	--accent-yellow: #ffff00;
+	--price-up: var(--accent-red);
+	--price-down: var(--accent-green);
+	--position-long: var(--accent-red);
+	--position-short: var(--accent-green);
+	--profit-color: var(--accent-red);
+	--loss-color: var(--accent-green);
+	font-family: "Courier New", monospace;
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	line-height: 1.6;
+	overflow-x: hidden;
+	max-width: 100vw;
+	width: 100%;
+	margin: 0;
+}
+
+body.monitor-body.color-mode-reversed {
+	--price-up: var(--accent-green);
+	--price-down: var(--accent-red);
+	--position-long: var(--accent-green);
+	--position-short: var(--accent-red);
+	--profit-color: var(--accent-green);
+	--loss-color: var(--accent-red);
+}
+
+body.monitor-body * {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+body.monitor-body ::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+body.monitor-body ::-webkit-scrollbar-track {
+	background: var(--bg-primary);
+}
+
+body.monitor-body ::-webkit-scrollbar-thumb {
+	background: var(--border-color);
+	border-radius: 4px;
+}
+
+body.monitor-body ::-webkit-scrollbar-thumb:hover {
+	background: var(--accent-green);
+}

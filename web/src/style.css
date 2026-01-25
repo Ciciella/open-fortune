@@ -1,0 +1,9 @@
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+#app {
+	min-height: 100vh;
+}
