@@ -5,14 +5,6 @@
       <nav class="nav-menu">
         <a href="#" class="nav-link active">交易</a>
         <a
-          href="https://github.com/Ciciella/open-fortune?tab=readme-ov-file#快速开始"
-          class="nav-link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          快速入门
-        </a>
-        <a
           href="https://github.com/Ciciella/open-fortune"
           class="nav-link github-link"
           target="_blank"
