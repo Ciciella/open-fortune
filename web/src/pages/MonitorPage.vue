@@ -320,6 +320,11 @@ onBeforeUnmount(() => {
 </script>
 <style scoped>
 .monitor-page :deep(.el-main) {
-  padding: 16px 24px 32px;
+  padding: 80px 24px 32px;
+}
+
+.monitor-page :deep(.el-header) {
+  height: 0;
+  padding: 0;
 }
 </style>
