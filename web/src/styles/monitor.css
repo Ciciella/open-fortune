@@ -1,29 +1,3 @@
-.monitor-root .disclaimer-banner {
-	background-color: rgba(255, 165, 0, 0.15);
-	border-bottom: 1px solid rgba(255, 165, 0, 0.4);
-	color: #ffa500;
-	padding: 12px 2rem;
-	text-align: center;
-	font-size: 0.9rem;
-	line-height: 1.5;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	width: 100%;
-	backdrop-filter: blur(5px);
-}
-.monitor-root .disclaimer-banner strong {
-	color: #ffbb33;
-}
-
-@media (max-width: 768px) {
-	.monitor-root .disclaimer-banner {
-		padding: 8px 1rem;
-		font-size: 0.7rem;
-		text-align: left;
-		justify-content: flex-start;
-	}
-}
 .monitor-root .header {
 	background-color: var(--bg-secondary);
 	border-bottom: 1px solid var(--border-color);
