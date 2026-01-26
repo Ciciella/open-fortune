@@ -1790,8 +1790,8 @@ GATE_USE_TESTNET=true                  # 使用测试网（推荐）
 
 如有问题或建议，请通过以下方式联系：
 
-- **GitHub Issues**: [https://github.com/195440/open-nof1.ai/issues](https://github.com/195440/open-nof1.ai/issues)
-- **讨论区**: [https://github.com/195440/open-nof1.ai/discussions](https://github.com/195440/open-nof1.ai/discussions)
+- **GitHub Issues**: [https://github.com/Ciciella/open-fortune/issues](https://github.com/Ciciella/open-fortune/issues)
+- **讨论区**: [https://github.com/Ciciella/open-fortune/discussions](https://github.com/Ciciella/open-fortune/discussions)
 
 ---
 

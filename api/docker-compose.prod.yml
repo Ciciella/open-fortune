@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  open-nof1-ai:
-    image: open-nof1.ai:latest
-    container_name: open-nof1.ai-prod
+  open-fortune-ai:
+    image: open-fortune.ai:latest
+    container_name: open-fortune.ai-prod
     restart: always
     ports:
       - "${PORT:-3100}:3100"

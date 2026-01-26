@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  open-nof1-ai:
+  open-fortune-ai:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: open-nof1.ai
+    container_name: open-fortune.ai
     restart: unless-stopped
     ports:
       - "${PORT:-3100}:3100"

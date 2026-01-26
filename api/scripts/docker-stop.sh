@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🛑 open-nof1.ai Docker 停止脚本"
+echo "🛑 open-fortune.ai Docker 停止脚本"
 echo "================================"
 
 # 检查 Docker Compose 是否可用
@@ -15,10 +15,10 @@ if ! docker compose version &> /dev/null; then
 fi
 
 # 检测运行中的容器
-RUNNING_CONTAINERS=$(docker ps --filter "name=open-nof1" --format "{{.Names}}")
+RUNNING_CONTAINERS=$(docker ps --filter "name=open-fortune" --format "{{.Names}}")
 
 if [ -z "$RUNNING_CONTAINERS" ]; then
-    echo "ℹ️  没有运行中的 open-nof1.ai 容器"
+    echo "ℹ️  没有运行中的 open-fortune.ai 容器"
     exit 0
 fi
 
@@ -51,7 +51,7 @@ fi
 
 # 验证容器已停止
 sleep 2
-STILL_RUNNING=$(docker ps --filter "name=open-nof1" --format "{{.Names}}")
+STILL_RUNNING=$(docker ps --filter "name=open-fortune" --format "{{.Names}}")
 
 if [ -z "$STILL_RUNNING" ]; then
     echo ""

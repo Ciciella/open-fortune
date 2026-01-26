@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🐋 open-nof1.ai Docker 启动脚本"
+echo "🐋 open-fortune.ai Docker 启动脚本"
 echo "================================"
 
 # 检查 Docker 是否安装
@@ -81,7 +81,7 @@ ENV_NAME="开发/测试"
 if [[ $REPLY == "2" ]]; then
     COMPOSE_FILE="docker-compose.prod.yml"
     ENV_NAME="生产"
-    
+
     # 检查是否使用测试网
     if grep -q "GATE_USE_TESTNET=true" .env; then
         echo "⚠️  警告: 生产环境检测到 GATE_USE_TESTNET=true"
@@ -116,7 +116,7 @@ if docker compose -f $COMPOSE_FILE ps | grep -q "Up"; then
     echo "📋 查看日志: docker compose -f $COMPOSE_FILE logs -f"
     echo "🛑 停止服务: docker compose -f $COMPOSE_FILE down"
     echo ""
-    
+
     # 询问是否查看日志
     read -p "是否查看实时日志? (Y/n) " -n 1 -r
     echo
@@ -130,4 +130,3 @@ else
     docker compose -f $COMPOSE_FILE logs
     exit 1
 fi
-

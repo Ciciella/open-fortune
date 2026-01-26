@@ -1,4 +1,4 @@
-# open-nof1.ai
+# open-fortune.ai
 
 <div align="center">
 
@@ -17,11 +17,11 @@
 
 ## 系统概述
 
-open-nof1.ai 是一个 AI 驱动的加密货币自动交易系统，将大语言模型智能与量化交易实践深度融合。系统基于 Agent 框架构建，通过赋予 AI 完全的市场分析和交易决策自主权，实现真正的智能化交易。
+open-fortune.ai 是一个 AI 驱动的加密货币自动交易系统，将大语言模型智能与量化交易实践深度融合。系统基于 Agent 框架构建，通过赋予 AI 完全的市场分析和交易决策自主权，实现真正的智能化交易。
 
 本系统采用**最小人工干预**的设计理念，摒弃传统的硬编码交易规则，让 AI 模型基于原始市场数据进行自主学习和决策。
 
-![open-nof1.ai](./public/image.png)
+![open-fortune.ai](./public/image.png)
 
 ## 系统架构
 
@@ -34,7 +34,7 @@ open-nof1.ai 是一个 AI 驱动的加密货币自动交易系统，将大语言
                   ├─── Market Data Analysis
                   ├─── Position Management
                   └─── Trade Execution Decisions
-                  
+
 ┌─────────────────┴───────────────────────────────────────┐
 │                    VoltAgent Core                       │
 │              (Agent Orchestration & Tool Routing)       │
@@ -247,7 +247,7 @@ npm run trading:start
 ### 完整文档包含内容:
 
 - ✅ 详细功能说明
-- ✅ 完整配置指南  
+- ✅ 完整配置指南
 - ✅ 所有命令参考
 - ✅ 生产部署指南
 - ✅ 故障排查和常见问题
@@ -350,6 +350,6 @@ npm run trading:start
 
 <div align="center">
 
-[![Star History Chart](https://api.star-history.com/svg?repos=195440/open-nof1.ai&type=Date)](https://star-history.com/#195440/open-nof1.ai&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=195440/open-fortune.ai&type=Date)](https://star-history.com/#195440/open-fortune.ai&Date)
 
 </div>

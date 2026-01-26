@@ -1,7 +1,7 @@
 {
-  "name": "open-nof1.ai",
+  "name": "open-fortune.ai",
   "version": "0.1.0",
-  "description": "nof1.ai Agent 自动交易系统",
+  "description": "open-fortune.ai Agent 自动交易系统",
   "type": "module",
   "author": "195440",
   "license": "AGPL-3.0",
@@ -16,12 +16,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/open-nof1.ai.git"
+    "url": "https://github.com/Ciciella/open-fortune.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/open-nof1.ai/issues"
+    "url": "https://github.com/Ciciella/open-fortune/issues"
   },
-  "homepage": "https://github.com/yourusername/open-nof1.ai#readme",
+  "homepage": "https://github.com/Ciciella/open-fortune#readme",
   "scripts": {
     "dev": "tsx watch --env-file=.env ./src",
     "build": "tsdown",
