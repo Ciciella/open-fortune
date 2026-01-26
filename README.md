@@ -8,4 +8,4 @@ Open Fortune 是一个前后端分离的应用仓库，定位为金融交易/投
 - `web/`: 前端应用
 
 
-![](api/docs/图片.png)
+![](docs/图片.png)
