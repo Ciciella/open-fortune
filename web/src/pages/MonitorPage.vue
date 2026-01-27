@@ -317,4 +317,13 @@ onBeforeUnmount(() => {
 .monitor-page :deep(.el-main) {
   padding: 80px 24px 32px;
 }
+
+.monitor-page :deep(.el-space) {
+  width: 100%;
+  display: flex;
+}
+
+.monitor-page :deep(.el-space--vertical) {
+  align-items: stretch;
+}
 </style>
