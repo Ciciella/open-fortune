@@ -3,6 +3,7 @@ import AiChatPage from "../pages/AiChatPage.vue";
 import AgentTeamsPage from "../pages/AgentTeamsPage.vue";
 import AssetPage from "../pages/AssetPage.vue";
 import ConfigPage from "../pages/ConfigPage.vue";
+import HomePage from "../pages/HomePage.vue";
 import MonitorPage from "../pages/MonitorPage.vue";
 
 export const router = createRouter({
@@ -10,6 +11,11 @@ export const router = createRouter({
 	routes: [
 		{
 			path: "/",
+			name: "home",
+			component: HomePage,
+		},
+		{
+			path: "/trade",
 			name: "monitor",
 			component: MonitorPage,
 		},

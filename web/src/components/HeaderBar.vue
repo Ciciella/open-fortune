@@ -20,14 +20,10 @@
         <el-col :xs="24" :md="12" class="nav-col">
           <div class="nav-menu">
             <router-link class="nav-link-btn" to="/" exact-active-class="active">
-              交易
+              首页
             </router-link>
-            <router-link
-              class="nav-link-btn"
-              to="/assets"
-              exact-active-class="active"
-            >
-              资产
+            <router-link class="nav-link-btn" to="/trade" exact-active-class="active">
+              AI交易
             </router-link>
             <router-link
               class="nav-link-btn"
@@ -42,6 +38,13 @@
               exact-active-class="active"
             >
               AI 对话
+            </router-link>
+            <router-link
+              class="nav-link-btn"
+              to="/assets"
+              exact-active-class="active"
+            >
+              资产
             </router-link>
             <router-link
               class="nav-link-btn"

@@ -2,8 +2,6 @@
   <el-container class="monitor-page">
     <el-main>
       <el-space direction="vertical" size="large" fill>
-        <TickerBar :symbols="tickerSymbols" :prices="prices" />
-
         <el-row :gutter="16">
           <el-col :xs="24">
             <AccountPanel
@@ -70,7 +68,6 @@ import AccountPanel from "../components/AccountPanel.vue";
 import DecisionPanel from "../components/DecisionPanel.vue";
 import LoginModal from "../components/LoginModal.vue";
 import PositionsTable from "../components/PositionsTable.vue";
-import TickerBar from "../components/TickerBar.vue";
 import TradesTable from "../components/TradesTable.vue";
 import type {
 	AccountData,
@@ -84,24 +81,18 @@ import {
 	fetchAccount,
 	fetchLogs,
 	fetchPositions,
-	fetchPrices,
 	fetchStrategy,
 	fetchTrades,
 } from "../services/api";
 
-const tickerSymbols = ["BTC", "ETH", "SOL", "BNB", "DOGE", "XRP"];
-
-const prices = ref<Record<string, number>>({});
 const account = ref<AccountData | null>(null);
 const strategy = ref<StrategyData | null>(null);
 const positions = ref<PositionData[]>([]);
 const trades = ref<TradeData[]>([]);
-const logEntry = ref<LogEntry | null>(null);
-
-
 const positionsLoading = ref(true);
 const tradesLoading = ref(true);
 const logsLoading = ref(true);
+const logEntry = ref<LogEntry | null>(null);
 
 const password = useSessionStorage<string>("close_position_password", "");
 const isLoggedIn = computed(() => password.value.length > 0);
@@ -146,7 +137,6 @@ const decisionIteration = computed(() => {
 	if (!logEntry.value) {
 		return "#-";
 	}
-
 	return `#${logEntry.value.iteration}`;
 });
 
@@ -196,7 +186,7 @@ const handleClosePosition = async (symbol: string) => {
 		const pnl = response.data.data.pnl;
 		const pnlText = pnl >= 0 ? `+${pnl.toFixed(2)}` : pnl.toFixed(2);
 		addToast("平仓成功", `${symbol} 已平仓，盈亏: ${pnlText} USDT`, "success");
-		await Promise.all([loadAccount(), loadPositions(), loadTrades()]);
+		await Promise.all([loadPositions(), loadTrades()]);
 	} else if (response.status === 403) {
 		addToast("密码错误", "密码验证失败，已自动退出登录", "error");
 		password.value = "";
@@ -226,11 +216,6 @@ const loadPositions = async () => {
 	const data = await fetchPositions();
 	if (data) {
 		positions.value = data.positions || [];
-		const nextPrices = { ...prices.value };
-		for (const position of data.positions) {
-			nextPrices[position.symbol] = position.currentPrice;
-		}
-		prices.value = nextPrices;
 	}
 	positionsLoading.value = false;
 };
@@ -255,22 +240,13 @@ const loadLogs = async () => {
 	logsLoading.value = false;
 };
 
-const loadPrices = async () => {
-	const data = await fetchPrices(tickerSymbols);
-	if (data) {
-		prices.value = { ...prices.value, ...data.prices };
-	}
-};
-
-
 const loadInitialData = async () => {
 	await Promise.all([
 		loadAccount(),
+		loadStrategy(),
 		loadPositions(),
 		loadTrades(),
 		loadLogs(),
-		loadPrices(),
-		loadStrategy(),
 	]);
 };
 
@@ -284,12 +260,12 @@ onMounted(async () => {
 			immediate: false,
 		}).pause,
 	);
-	intervals.push(useIntervalFn(loadPrices, 10000, { immediate: false }).pause);
 	intervals.push(
-		useIntervalFn(() => Promise.all([loadTrades(), loadLogs()]), 30000, {
+		useIntervalFn(loadTrades, 30000, {
 			immediate: false,
 		}).pause,
 	);
+	intervals.push(useIntervalFn(loadLogs, 30000, { immediate: false }).pause);
 });
 
 onBeforeUnmount(() => {
