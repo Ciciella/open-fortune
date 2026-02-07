@@ -4,6 +4,36 @@
       <el-space direction="vertical" size="large" fill>
         <el-row :gutter="16">
           <el-col :xs="24">
+            <el-card shadow="never" class="status-card">
+              <el-row justify="space-between" align="middle" :gutter="12">
+                <el-col :xs="24" :md="12">
+                  <el-space size="small">
+                    <el-text class="status-label">当前AI交易状态</el-text>
+                    <el-tag :type="aiTradeStatusTagType" size="large">
+                      {{ aiTradeStatusText }}
+                    </el-tag>
+                  </el-space>
+                </el-col>
+                <el-col :xs="24" :md="12" class="status-actions">
+                  <el-space size="small">
+                    <el-text size="small" type="info">
+                      该状态由 Agent Teams 开关反向推导（两者互斥）
+                    </el-text>
+                    <el-button
+                      :loading="statusLoading"
+                      @click="handleRefreshAiTradeStatus"
+                    >
+                      刷新状态
+                    </el-button>
+                  </el-space>
+                </el-col>
+              </el-row>
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :xs="24">
             <AccountPanel
               :account="account"
               :strategy="strategy"
@@ -84,6 +114,7 @@ import {
 	fetchStrategy,
 	fetchTrades,
 } from "../services/api";
+import { fetchAgentTeamsConfig } from "../services/agentTeams";
 
 const account = ref<AccountData | null>(null);
 const strategy = ref<StrategyData | null>(null);
@@ -93,6 +124,8 @@ const positionsLoading = ref(true);
 const tradesLoading = ref(true);
 const logsLoading = ref(true);
 const logEntry = ref<LogEntry | null>(null);
+const agentTeamsEnabled = ref<boolean | null>(null);
+const statusLoading = ref(false);
 
 const password = useSessionStorage<string>("close_position_password", "");
 const isLoggedIn = computed(() => password.value.length > 0);
@@ -105,6 +138,27 @@ const isReversed = computed(() => colorScheme.value === "reversed");
 
 const showLoginModal = ref(false);
 const isClosing = ref(false);
+
+const aiTradeActive = computed(() => {
+	if (agentTeamsEnabled.value === null) {
+		return null;
+	}
+	return !agentTeamsEnabled.value;
+});
+
+const aiTradeStatusText = computed(() => {
+	if (aiTradeActive.value === null) {
+		return "状态未知";
+	}
+	return aiTradeActive.value ? "激活中" : "已关闭";
+});
+
+const aiTradeStatusTagType = computed<"success" | "info" | "warning">(() => {
+	if (aiTradeActive.value === null) {
+		return "warning";
+	}
+	return aiTradeActive.value ? "success" : "info";
+});
 
 const decisionHtml = computed(() => {
 	if (!logEntry.value) {
@@ -240,6 +294,32 @@ const loadLogs = async () => {
 	logsLoading.value = false;
 };
 
+const loadAiTradeStatus = async (manual = false) => {
+	statusLoading.value = true;
+	try {
+		const response = await fetchAgentTeamsConfig();
+		if (!response) {
+			agentTeamsEnabled.value = null;
+			if (manual) {
+				ElMessage.warning("状态刷新失败");
+			}
+			return;
+		}
+		agentTeamsEnabled.value = response.enabled;
+	} catch {
+		agentTeamsEnabled.value = null;
+		if (manual) {
+			ElMessage.warning("状态刷新失败");
+		}
+	} finally {
+		statusLoading.value = false;
+	}
+};
+
+const handleRefreshAiTradeStatus = async () => {
+	await loadAiTradeStatus(true);
+};
+
 const loadInitialData = async () => {
 	await Promise.all([
 		loadAccount(),
@@ -247,6 +327,7 @@ const loadInitialData = async () => {
 		loadPositions(),
 		loadTrades(),
 		loadLogs(),
+		loadAiTradeStatus(),
 	]);
 };
 
@@ -266,6 +347,9 @@ onMounted(async () => {
 		}).pause,
 	);
 	intervals.push(useIntervalFn(loadLogs, 30000, { immediate: false }).pause);
+	intervals.push(
+		useIntervalFn(loadAiTradeStatus, 30000, { immediate: false }).pause,
+	);
 });
 
 onBeforeUnmount(() => {
@@ -286,5 +370,26 @@ onBeforeUnmount(() => {
 
 .monitor-page :deep(.el-space--vertical) {
   align-items: stretch;
+}
+
+.status-card {
+  border: 1px solid #d1d5db;
+}
+
+.status-label {
+  color: #111827;
+  font-weight: 600;
+}
+
+.status-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .status-actions {
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
 }
 </style>
