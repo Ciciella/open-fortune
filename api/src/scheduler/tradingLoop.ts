@@ -43,6 +43,8 @@ const SYMBOLS = [...RISK_PARAMS.TRADING_SYMBOLS] as string[];
 // 交易开始时间
 let tradingStartTime = new Date();
 let iterationCount = 0;
+let tradingTask: cron.ScheduledTask | null = null;
+let tradingLoopRunning = false;
 
 // 账户风险配置
 let accountRiskConfig = getAccountRiskConfig();
@@ -1728,6 +1730,11 @@ export async function initTradingSystem() {
  * 启动交易循环
  */
 export function startTradingLoop() {
+  if (tradingTask) {
+    logger.warn("交易循环已启动，忽略重复启动请求");
+    return;
+  }
+
   const intervalMinutes = Number.parseInt(
     process.env.TRADING_INTERVAL_MINUTES || "5"
   );
@@ -1740,11 +1747,53 @@ export function startTradingLoop() {
   
   // 设置定时任务
   const cronExpression = `*/${intervalMinutes} * * * *`;
-  cron.schedule(cronExpression, () => {
+  tradingTask = cron.schedule(cronExpression, () => {
     executeTradingDecision();
   });
+  tradingLoopRunning = true;
   
   logger.info(`定时任务已设置: ${cronExpression}`);
+}
+
+/**
+ * 暂停交易循环（保留任务）
+ */
+export function pauseTradingLoop() {
+  if (!tradingTask || !tradingLoopRunning) {
+    return;
+  }
+  tradingTask.stop();
+  tradingLoopRunning = false;
+  logger.info("交易循环已暂停");
+}
+
+/**
+ * 恢复交易循环
+ */
+export function resumeTradingLoop() {
+  if (!tradingTask || tradingLoopRunning) {
+    return;
+  }
+  tradingTask.start();
+  tradingLoopRunning = true;
+  logger.info("交易循环已恢复");
+}
+
+/**
+ * 停止交易循环并释放任务
+ */
+export function stopTradingLoop() {
+  if (!tradingTask) {
+    return;
+  }
+  tradingTask.stop();
+  tradingTask = null;
+  tradingLoopRunning = false;
+  logger.info("交易循环已停止");
+}
+
+export function isTradingLoopRunning() {
+  return tradingLoopRunning;
 }
 
 /**

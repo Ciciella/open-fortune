@@ -1,0 +1,6 @@
+{
+  "enabled": false,
+  "intervalSeconds": 30,
+  "maxBudgetUsdt": 200,
+  "maxTeamPositions": 3
+}

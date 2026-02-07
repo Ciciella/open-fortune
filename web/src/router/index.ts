@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import AiChatPage from "../pages/AiChatPage.vue";
+import AgentTeamsPage from "../pages/AgentTeamsPage.vue";
 import ConfigPage from "../pages/ConfigPage.vue";
 import MonitorPage from "../pages/MonitorPage.vue";
 
@@ -10,6 +11,11 @@ export const router = createRouter({
 			path: "/",
 			name: "monitor",
 			component: MonitorPage,
+		},
+		{
+			path: "/agent-teams",
+			name: "agent-teams",
+			component: AgentTeamsPage,
 		},
 		{
 			path: "/config",

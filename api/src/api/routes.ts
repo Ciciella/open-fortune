@@ -29,6 +29,8 @@ import { RISK_PARAMS } from "../config/riskParams";
 import { getChinaTimeISO } from "../utils/timeUtils";
 import { getQuantoMultiplier } from "../utils/contractUtils";
 import { ipBlacklistMiddleware } from "../middleware/ipBlacklist";
+import { agentTeamsService } from "../agentTeams/service";
+import { agentTeamsOrchestrator } from "../agentTeams/orchestrator";
 
 const logger = createLogger({
   name: "api-routes",
@@ -589,6 +591,115 @@ export function createApiRoutes() {
     }
   });
 
+  /**
+   * Agent Teams 总览
+   */
+  app.get("/api/agent-teams/overview", async (c) => {
+    try {
+      const overview = await agentTeamsService.getOverview();
+      return c.json(overview);
+    } catch (error: any) {
+      logger.error("获取 Agent Teams 总览失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Agent Teams 决策时间线
+   */
+  app.get("/api/agent-teams/decisions", async (c) => {
+    try {
+      const teamId = c.req.query("teamId");
+      const limit = Number.parseInt(c.req.query("limit") || "20");
+      const decisions = await agentTeamsService.getDecisions(teamId, limit);
+      return c.json({ decisions });
+    } catch (error: any) {
+      logger.error("获取 Agent Teams 决策列表失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Agent Teams 决策详情
+   */
+  app.get("/api/agent-teams/decision/:id", async (c) => {
+    try {
+      const decisionId = c.req.param("id");
+      const decision = await agentTeamsService.getDecisionById(decisionId);
+      if (!decision) {
+        return c.json({ error: "not found" }, 404);
+      }
+      return c.json(decision);
+    } catch (error: any) {
+      logger.error("获取 Agent Teams 决策详情失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Agent Teams 配置
+   */
+  app.get("/api/agent-teams/config", async (c) => {
+    try {
+      const config = await agentTeamsService.getConfig();
+      return c.json(config);
+    } catch (error: any) {
+      logger.error("获取 Agent Teams 配置失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  app.patch("/api/agent-teams/config", async (c) => {
+    try {
+      const body = await c.req.json();
+      const patch: Partial<{
+        enabled: boolean;
+        intervalSeconds: number;
+        maxBudgetUsdt: number;
+        maxTeamPositions: number;
+      }> = {};
+
+      if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+      if (typeof body.intervalSeconds === "number") patch.intervalSeconds = body.intervalSeconds;
+      if (typeof body.maxBudgetUsdt === "number") patch.maxBudgetUsdt = body.maxBudgetUsdt;
+      if (typeof body.maxTeamPositions === "number") patch.maxTeamPositions = body.maxTeamPositions;
+
+      const config = await agentTeamsService.updateConfig(patch);
+      await agentTeamsOrchestrator.applyEnabledState(
+        config.enabled,
+        config.intervalSeconds,
+      );
+      return c.json(config);
+    } catch (error: any) {
+      logger.error("更新 Agent Teams 配置失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Agent Teams 控制接口
+   */
+  app.post("/api/agent-teams/control/start", async (c) => {
+    try {
+      const config = await agentTeamsService.updateConfig({ enabled: true });
+      await agentTeamsOrchestrator.applyEnabledState(true, config.intervalSeconds);
+      return c.json({ success: true, config });
+    } catch (error: any) {
+      logger.error("启动 Agent Teams 失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  app.post("/api/agent-teams/control/stop", async (c) => {
+    try {
+      const config = await agentTeamsService.updateConfig({ enabled: false });
+      await agentTeamsOrchestrator.applyEnabledState(false, config.intervalSeconds);
+      return c.json({ success: true, config });
+    } catch (error: any) {
+      logger.error("停止 Agent Teams 失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
   return app;
 }
-

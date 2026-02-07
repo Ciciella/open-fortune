@@ -23,6 +23,7 @@ import "dotenv/config";
 import { createClient } from "@libsql/client";
 import { CREATE_TABLES_SQL } from "./schema";
 import { createLogger } from "../utils/loggerUtils";
+import { agentTeamsRepository } from "../agentTeams/repository";
 
 const logger = createLogger({
   name: "database-init",
@@ -43,6 +44,7 @@ async function initDatabase() {
     // 执行建表语句
     logger.info("创建数据库表...");
     await client.executeMultiple(CREATE_TABLES_SQL);
+    await agentTeamsRepository.ensureBootstrap();
 
     // 检查是否需要重新初始化
     const existingHistory = await client.execute(

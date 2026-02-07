@@ -203,5 +203,106 @@ CREATE INDEX IF NOT EXISTS idx_signals_timestamp ON trading_signals(timestamp);
 CREATE INDEX IF NOT EXISTS idx_signals_symbol ON trading_signals(symbol);
 CREATE INDEX IF NOT EXISTS idx_history_timestamp ON account_history(timestamp);
 CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON agent_decisions(timestamp);
-`;
 
+-- Agent Teams 配置表
+CREATE TABLE IF NOT EXISTS agent_teams_config (
+  id INTEGER PRIMARY KEY,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  interval_seconds INTEGER NOT NULL DEFAULT 30,
+  max_budget_usdt REAL NOT NULL DEFAULT 200,
+  max_team_positions INTEGER NOT NULL DEFAULT 3,
+  updated_at TEXT NOT NULL
+);
+
+-- Agent Teams 团队注册表
+CREATE TABLE IF NOT EXISTS agent_teams_registry (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id TEXT NOT NULL UNIQUE,
+  team_name TEXT NOT NULL,
+  team_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running',
+  risk_level TEXT NOT NULL DEFAULT 'medium',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Agent Teams 持仓表
+CREATE TABLE IF NOT EXISTS agent_teams_positions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  side TEXT NOT NULL,
+  quantity REAL NOT NULL,
+  entry_price REAL NOT NULL,
+  leverage INTEGER NOT NULL,
+  margin_used REAL NOT NULL,
+  opened_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  UNIQUE(team_id, symbol)
+);
+
+-- Agent Teams 订单流水
+CREATE TABLE IF NOT EXISTS agent_teams_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id TEXT NOT NULL,
+  team_id TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  side TEXT NOT NULL,
+  action TEXT NOT NULL,
+  price REAL NOT NULL,
+  quantity REAL NOT NULL,
+  status TEXT NOT NULL,
+  exchange_raw TEXT,
+  created_at TEXT NOT NULL
+);
+
+-- Agent Teams 决策链
+CREATE TABLE IF NOT EXISTS agent_teams_decisions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  decision_id TEXT NOT NULL UNIQUE,
+  team_id TEXT NOT NULL,
+  cycle_id TEXT NOT NULL,
+  signal_summary TEXT NOT NULL,
+  decision_text TEXT NOT NULL,
+  risk_verdict TEXT NOT NULL,
+  risk_reason TEXT NOT NULL,
+  execution_result TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  reward_risk_ratio REAL NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- Agent Teams 调度周期
+CREATE TABLE IF NOT EXISTS agent_teams_cycles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cycle_id TEXT NOT NULL UNIQUE,
+  started_at TEXT NOT NULL,
+  finished_at TEXT NOT NULL,
+  teams_count INTEGER NOT NULL,
+  orders_count INTEGER NOT NULL,
+  errors_count INTEGER NOT NULL,
+  status TEXT NOT NULL
+);
+
+-- Agent Teams 风控拦截事件
+CREATE TABLE IF NOT EXISTS agent_teams_risk_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id TEXT NOT NULL UNIQUE,
+  team_id TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  rule_code TEXT NOT NULL,
+  threshold TEXT NOT NULL,
+  actual_value TEXT NOT NULL,
+  action_taken TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_teams_decisions_team_time
+  ON agent_teams_decisions(team_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_orders_team_time
+  ON agent_teams_orders(team_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_positions_team_symbol
+  ON agent_teams_positions(team_id, symbol);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_cycles_time
+  ON agent_teams_cycles(started_at DESC);
+`;

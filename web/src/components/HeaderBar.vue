@@ -24,6 +24,13 @@
             </router-link>
             <router-link
               class="nav-link-btn"
+              to="/agent-teams"
+              exact-active-class="active"
+            >
+              Agent Teams
+            </router-link>
+            <router-link
+              class="nav-link-btn"
               to="/ai-chat"
               exact-active-class="active"
             >
