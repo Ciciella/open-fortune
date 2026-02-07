@@ -5,10 +5,7 @@
         <TickerBar :symbols="tickerSymbols" :prices="prices" />
 
         <el-row :gutter="16">
-          <el-col :xs="24" :lg="16">
-            <EquityChart :history="history" />
-          </el-col>
-          <el-col :xs="24" :lg="8">
+          <el-col :xs="24">
             <AccountPanel
               :account="account"
               :strategy="strategy"
@@ -71,14 +68,12 @@ import { marked } from "marked";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AccountPanel from "../components/AccountPanel.vue";
 import DecisionPanel from "../components/DecisionPanel.vue";
-import EquityChart from "../components/EquityChart.vue";
 import LoginModal from "../components/LoginModal.vue";
 import PositionsTable from "../components/PositionsTable.vue";
 import TickerBar from "../components/TickerBar.vue";
 import TradesTable from "../components/TradesTable.vue";
 import type {
 	AccountData,
-	HistoryEntry,
 	LogEntry,
 	PositionData,
 	StrategyData,
@@ -87,7 +82,6 @@ import type {
 import {
 	closePosition,
 	fetchAccount,
-	fetchHistory,
 	fetchLogs,
 	fetchPositions,
 	fetchPrices,
@@ -102,7 +96,6 @@ const account = ref<AccountData | null>(null);
 const strategy = ref<StrategyData | null>(null);
 const positions = ref<PositionData[]>([]);
 const trades = ref<TradeData[]>([]);
-const history = ref<HistoryEntry[]>([]);
 const logEntry = ref<LogEntry | null>(null);
 
 
@@ -129,7 +122,8 @@ const decisionHtml = computed(() => {
 
 	const decision =
 		logEntry.value.decision || logEntry.value.actionsTaken || "暂无决策内容";
-	return marked.parse(decision);
+	const rendered = marked.parse(decision);
+	return typeof rendered === "string" ? rendered : "";
 });
 
 const decisionTime = computed(() => {
@@ -254,18 +248,11 @@ const loadLogs = async () => {
 	logsLoading.value = true;
 	const data = await fetchLogs();
 	if (data && data.logs.length > 0) {
-		logEntry.value = data.logs[0];
+		logEntry.value = data.logs[0] ?? null;
 	} else {
 		logEntry.value = null;
 	}
 	logsLoading.value = false;
-};
-
-const loadHistory = async () => {
-	const data = await fetchHistory();
-	if (data) {
-		history.value = data.history || [];
-	}
 };
 
 const loadPrices = async () => {
@@ -284,7 +271,6 @@ const loadInitialData = async () => {
 		loadLogs(),
 		loadPrices(),
 		loadStrategy(),
-		loadHistory(),
 	]);
 };
 
@@ -304,7 +290,6 @@ onMounted(async () => {
 			immediate: false,
 		}).pause,
 	);
-	intervals.push(useIntervalFn(loadHistory, 30000, { immediate: false }).pause);
 });
 
 onBeforeUnmount(() => {

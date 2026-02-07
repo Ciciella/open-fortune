@@ -108,7 +108,6 @@ const initChart = () => {
 				display: true,
 				grid: {
 					color: "rgba(255, 255, 255, 0.1)",
-					drawBorder: false,
 				},
 				ticks: {
 					color: "#9ca3af",
@@ -122,7 +121,6 @@ const initChart = () => {
 				position: "left",
 				grid: {
 					color: "rgba(255, 255, 255, 0.1)",
-					drawBorder: false,
 				},
 				ticks: {
 					color: "#9ca3af",
@@ -146,8 +144,11 @@ const updateChart = () => {
 	}
 
 	chartRef.value.data.labels = buildLabels(props.history);
-	chartRef.value.data.datasets[0].data = buildDataset(props.history);
-	chartRef.value.data.datasets[0].pointRadius = 0;
+	const firstDataset = chartRef.value.data.datasets[0];
+	if (!firstDataset) {
+		return;
+	}
+	firstDataset.data = buildDataset(props.history);
 	chartRef.value.update("none");
 };
 

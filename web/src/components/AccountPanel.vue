@@ -13,12 +13,6 @@
       </el-row>
     </template>
 
-    <el-statistic title="总资产 (USDT)" :value="Number(totalValue)" :precision="2" />
-    <el-space size="small" class="value-change">
-      <el-text :type="pnlType">{{ changeAmount }}</el-text>
-      <el-text :type="pnlType">{{ changePercent }}</el-text>
-    </el-space>
-
     <el-divider />
 
     <el-descriptions :column="1" size="small" border>
@@ -73,43 +67,11 @@ const props = defineProps<{
 	onThemeChange: (value: boolean) => void;
 }>();
 
-const totalValue = computed(() => {
-	if (!props.account) {
-		return "0.00";
-	}
-
-	const total = props.account.totalBalance + props.account.unrealisedPnl;
-	return total.toFixed(2);
-});
-
 const unrealisedPnl = computed(() => props.account?.unrealisedPnl ?? 0);
 
 const unrealisedPnlText = computed(() => {
 	const value = unrealisedPnl.value;
 	return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
-});
-
-const totalPnl = computed(() => {
-	if (!props.account) {
-		return 0;
-	}
-
-	const total = props.account.totalBalance + props.account.unrealisedPnl;
-	return total - props.account.initialBalance;
-});
-
-const changeAmount = computed(() => {
-	const value = totalPnl.value;
-	return `${value >= 0 ? "+" : "-"}$${Math.abs(value).toFixed(2)}`;
-});
-
-const changePercent = computed(() => {
-	if (!props.account || props.account.initialBalance === 0) {
-		return "(+0.00%)";
-	}
-
-	const percent = (totalPnl.value / props.account.initialBalance) * 100;
-	return `(${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%)`;
 });
 
 const availableBalance = computed(() =>
@@ -133,10 +95,6 @@ const strategyInfo = computed(() => {
 
 const positiveType = computed(() => (props.isReversed ? "success" : "danger"));
 const negativeType = computed(() => (props.isReversed ? "danger" : "success"));
-
-const pnlType = computed(() =>
-	totalPnl.value >= 0 ? positiveType.value : negativeType.value,
-);
 const unrealisedType = computed(() =>
 	unrealisedPnl.value >= 0 ? positiveType.value : negativeType.value,
 );
@@ -149,9 +107,3 @@ const pnlValueType = (value: number) =>
 const sideType = (side: PositionData["side"]) =>
 	side === "long" ? positiveType.value : negativeType.value;
 </script>
-
-<style scoped>
-.value-change {
-  margin-top: 6px;
-}
-</style>

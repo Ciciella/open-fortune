@@ -24,6 +24,13 @@
             </router-link>
             <router-link
               class="nav-link-btn"
+              to="/assets"
+              exact-active-class="active"
+            >
+              资产
+            </router-link>
+            <router-link
+              class="nav-link-btn"
               to="/agent-teams"
               exact-active-class="active"
             >
