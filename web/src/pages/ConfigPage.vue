@@ -69,11 +69,11 @@
               />
             </el-form-item>
 
-            <el-form-item label="调度间隔（秒）">
+            <el-form-item label="调度间隔（分钟）">
               <el-input-number
-                v-model="formModel.intervalSeconds"
-                :min="5"
-                :step="5"
+                v-model="formModel.intervalMinutes"
+                :min="1"
+                :step="1"
                 :disabled="loadingInit || busy"
               />
             </el-form-item>
@@ -187,7 +187,7 @@ const loadingStop = ref(false);
 
 const formModel = reactive({
 	enabled: false,
-	intervalSeconds: 30,
+	intervalMinutes: 1,
 	maxBudgetUsdt: 200,
 	maxTeamPositions: 3,
 	safetyMode: "risk_plus_simulation" as
@@ -212,9 +212,13 @@ const isDirty = computed(() => {
 	if (!config.value) {
 		return false;
 	}
+	const intervalSecondsFromForm = Math.max(
+		5,
+		Math.round(formModel.intervalMinutes * 60),
+	);
 	return (
 		formModel.enabled !== config.value.enabled ||
-		formModel.intervalSeconds !== config.value.intervalSeconds ||
+		intervalSecondsFromForm !== config.value.intervalSeconds ||
 		formModel.maxBudgetUsdt !== config.value.maxBudgetUsdt ||
 		formModel.maxTeamPositions !== config.value.maxTeamPositions ||
 		formModel.safetyMode !== (masterConfig.value?.safetyMode ?? "risk_plus_simulation") ||
@@ -253,7 +257,10 @@ const resetFormFromConfig = () => {
 		return;
 	}
 	formModel.enabled = config.value.enabled;
-	formModel.intervalSeconds = config.value.intervalSeconds;
+	formModel.intervalMinutes = Math.max(
+		1,
+		Math.round(config.value.intervalSeconds / 60),
+	);
 	formModel.maxBudgetUsdt = config.value.maxBudgetUsdt;
 	formModel.maxTeamPositions = config.value.maxTeamPositions;
 	formModel.safetyMode = masterConfig.value?.safetyMode ?? "risk_plus_simulation";
@@ -308,7 +315,10 @@ const saveConfig = async () => {
 	try {
 		const payload = {
 			enabled: formModel.enabled,
-			intervalSeconds: formModel.intervalSeconds,
+			intervalSeconds: Math.max(
+				5,
+				Math.round(formModel.intervalMinutes * 60),
+			),
 			maxBudgetUsdt: formModel.maxBudgetUsdt,
 			maxTeamPositions: formModel.maxTeamPositions,
 		};
