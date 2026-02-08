@@ -20,16 +20,15 @@ import "dotenv/config";
 import { createLogger } from "./utils/loggerUtils";
 import { serve } from "@hono/node-server";
 import { createApiRoutes } from "./api/routes";
-import { startTradingLoop, initTradingSystem, stopTradingLoop } from "./scheduler/tradingLoop";
+import { initTradingSystem } from "./scheduler/tradingLoop";
 import { startAccountRecorder } from "./scheduler/accountRecorder";
-import { startTrailingStopMonitor, stopTrailingStopMonitor } from "./scheduler/trailingStopMonitor";
-import { startStopLossMonitor, stopStopLossMonitor } from "./scheduler/stopLossMonitor";
-import { startPartialProfitMonitor, stopPartialProfitMonitor } from "./scheduler/partialProfitMonitor";
 import { initDatabase } from "./database/init";
 import { RISK_PARAMS } from "./config/riskParams";
 import { getStrategyParams, getTradingStrategy } from "./agents/tradingAgent";
 import { initializeTerminalEncoding} from "./utils/encodingUtils";
 import { agentTeamsOrchestrator } from "./agentTeams/orchestrator";
+import { agentTeamsRepository } from "./agentTeams/repository";
+import { applyLegacySystemSetting, stopLegacySystem } from "./scheduler/legacySystemControl";
 
 // 设置时区为中国时间（Asia/Shanghai，UTC+8）
 process.env.TZ = 'Asia/Shanghai';
@@ -73,11 +72,7 @@ async function main() {
   logger.info(`Web 服务器已启动: http://localhost:${port}`);
   logger.info(`监控界面: http://localhost:${port}/`);
   
-  // 4. 启动交易循环
-  logger.info("启动交易循环...");
-  startTradingLoop();
-
-  // 4.1 启动 Agent Teams 编排器（根据配置决定是否抢占旧循环）
+  // 4. 启动 Agent Teams 编排器（根据配置决定是否抢占旧循环）
   logger.info("初始化 Agent Teams 编排器...");
   await agentTeamsOrchestrator.init();
   
@@ -85,17 +80,20 @@ async function main() {
   logger.info("启动账户资产记录器...");
   startAccountRecorder();
   
-  // 6. 启动移动止盈监控器（每10秒检查一次）
-  logger.info("启动移动止盈监控器...");
-  startTrailingStopMonitor();
-  
-  // 7. 启动止损监控器（每10秒检查一次）
-  logger.info("启动止损监控器...");
-  startStopLossMonitor();
-  
-  // 8. 启动分批止盈监控器（每10秒检查一次）
-  logger.info("启动分批止盈监控器...");
-  startPartialProfitMonitor();
+  // 6. 根据配置决定是否启动旧系统执行链路
+  const [agentTeamsConfig, masterConfig] = await Promise.all([
+    agentTeamsRepository.getConfig(),
+    agentTeamsRepository.getMasterConfig(),
+  ]);
+  applyLegacySystemSetting({
+    legacySystemEnabled: masterConfig?.legacySystemEnabled ?? false,
+    agentTeamsEnabled: agentTeamsConfig?.enabled ?? false,
+  });
+  logger.info(
+    masterConfig?.legacySystemEnabled
+      ? "旧系统开关: 启用（仅在 Agent Teams 关闭时运行）"
+      : "旧系统开关: 关闭",
+  );
   
   const strategy = getTradingStrategy();
   const params = getStrategyParams(strategy);
@@ -172,25 +170,15 @@ async function gracefulShutdown(signal: string) {
   logger.info(`\n\n收到 ${signal} 信号，正在关闭系统...`);
   
   try {
-    // 停止移动止盈监控器
-    logger.info("正在停止移动止盈监控器...");
-    stopTrailingStopMonitor();
-    logger.info("移动止盈监控器已停止");
-    
-    // 停止止损监控器
-    logger.info("正在停止止损监控器...");
-    stopStopLossMonitor();
-    logger.info("止损监控器已停止");
-
     // 停止 Agent Teams 编排器
     logger.info("正在停止 Agent Teams 编排器...");
     await agentTeamsOrchestrator.shutdown();
     logger.info("Agent Teams 编排器已停止");
 
-    // 停止交易循环
-    logger.info("正在停止交易循环...");
-    stopTradingLoop();
-    logger.info("交易循环已停止");
+    // 停止旧系统执行链路
+    logger.info("正在停止旧系统执行链路...");
+    stopLegacySystem();
+    logger.info("旧系统执行链路已停止");
     
     // 关闭服务器
     if (server) {

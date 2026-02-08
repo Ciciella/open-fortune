@@ -269,6 +269,9 @@ CREATE TABLE IF NOT EXISTS agent_teams_decisions (
   execution_result TEXT NOT NULL,
   confidence REAL NOT NULL,
   reward_risk_ratio REAL NOT NULL,
+  tasks_summary TEXT,
+  gate_trail TEXT,
+  lead_conclusion TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -297,6 +300,99 @@ CREATE TABLE IF NOT EXISTS agent_teams_risk_events (
   created_at TEXT NOT NULL
 );
 
+-- Agent Teams 任务面板
+CREATE TABLE IF NOT EXISTS agent_teams_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id TEXT NOT NULL UNIQUE,
+  cycle_id TEXT NOT NULL,
+  team_id TEXT NOT NULL,
+  specialist_type TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  inputs TEXT NOT NULL,
+  timeout_ms INTEGER NOT NULL,
+  priority INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  result_summary TEXT,
+  error_message TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Agent Teams 协作收件箱
+CREATE TABLE IF NOT EXISTS agent_teams_inbox (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  message_id TEXT NOT NULL UNIQUE,
+  cycle_id TEXT NOT NULL,
+  team_id TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  specialist_type TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- Agent Teams 门控轨迹
+CREATE TABLE IF NOT EXISTS agent_teams_gate_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cycle_id TEXT NOT NULL,
+  team_id TEXT NOT NULL,
+  gate_name TEXT NOT NULL,
+  passed INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  meta TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- Agent Teams 周期全链路快照
+CREATE TABLE IF NOT EXISTS agent_teams_cycle_traces (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cycle_id TEXT NOT NULL,
+  team_id TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT NOT NULL,
+  status TEXT NOT NULL,
+  lead_conclusion TEXT NOT NULL,
+  tasks_json TEXT NOT NULL,
+  inbox_json TEXT NOT NULL,
+  gates_json TEXT NOT NULL,
+  execution_json TEXT,
+  UNIQUE(cycle_id, team_id)
+);
+
+-- Master Agent 配置
+CREATE TABLE IF NOT EXISTS agent_master_config (
+  id INTEGER PRIMARY KEY,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  safety_mode TEXT NOT NULL DEFAULT 'risk_plus_simulation',
+  allow_ephemeral_strategy INTEGER NOT NULL DEFAULT 1,
+  legacy_system_enabled INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+-- Master Agent 全局目标
+CREATE TABLE IF NOT EXISTS agent_master_objectives (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  objective_id TEXT NOT NULL UNIQUE,
+  objective_text TEXT NOT NULL,
+  status TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Master Agent 决策记录
+CREATE TABLE IF NOT EXISTS agent_master_decisions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  decision_id TEXT NOT NULL UNIQUE,
+  cycle_id TEXT NOT NULL,
+  objective_id TEXT NOT NULL,
+  selected_strategy_name TEXT NOT NULL,
+  strategy_source TEXT NOT NULL,
+  rationale_json TEXT NOT NULL,
+  risk_verdict TEXT NOT NULL,
+  execution_result TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_agent_teams_decisions_team_time
   ON agent_teams_decisions(team_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_teams_orders_team_time
@@ -305,4 +401,14 @@ CREATE INDEX IF NOT EXISTS idx_agent_teams_positions_team_symbol
   ON agent_teams_positions(team_id, symbol);
 CREATE INDEX IF NOT EXISTS idx_agent_teams_cycles_time
   ON agent_teams_cycles(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_tasks_team_cycle
+  ON agent_teams_tasks(team_id, cycle_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_tasks_status
+  ON agent_teams_tasks(status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_inbox_team_cycle
+  ON agent_teams_inbox(team_id, cycle_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_gate_results_team_cycle
+  ON agent_teams_gate_results(team_id, cycle_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_teams_cycle_traces_cycle
+  ON agent_teams_cycle_traces(cycle_id, team_id);
 `;

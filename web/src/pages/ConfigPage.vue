@@ -97,6 +97,39 @@
               />
             </el-form-item>
 
+            <el-form-item label="Master 安全模式">
+              <el-select
+                v-model="formModel.safetyMode"
+                :disabled="loadingInit || busy"
+                style="width: 280px"
+              >
+                <el-option label="risk_only（仅风控）" value="risk_only" />
+                <el-option
+                  label="risk_plus_simulation（风控+模拟）"
+                  value="risk_plus_simulation"
+                />
+                <el-option
+                  label="manual_confirm（人工确认）"
+                  value="manual_confirm"
+                />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="允许临时策略">
+              <el-switch
+                v-model="formModel.allowEphemeralStrategy"
+                :disabled="loadingInit || busy"
+              />
+            </el-form-item>
+
+            <el-form-item label="旧系统执行开关">
+              <el-switch
+                v-model="formModel.legacySystemEnabled"
+                :disabled="loadingInit || busy"
+              />
+              <span class="hint-text">关闭后旧交易循环与旧风控监控都不会运行</span>
+            </el-form-item>
+
             <el-form-item label="最近更新时间">
               <span class="updated-at">
                 {{ config?.updatedAt ? formatTime(config.updatedAt) : "-" }}
@@ -133,13 +166,17 @@ import { ElMessage } from "element-plus";
 import { computed, onMounted, reactive, ref } from "vue";
 import {
 	fetchAgentTeamsConfig,
+	fetchMasterConfig,
 	startAgentTeams,
 	stopAgentTeams,
 	updateAgentTeamsConfig,
+	updateMasterConfig,
 	type AgentTeamsConfigResponse,
+	type MasterConfigResponse,
 } from "../services/agentTeams";
 
 const config = ref<AgentTeamsConfigResponse | null>(null);
+const masterConfig = ref<MasterConfigResponse | null>(null);
 const loadError = ref<string | null>(null);
 
 const loadingInit = ref(false);
@@ -152,6 +189,12 @@ const formModel = reactive({
 	intervalSeconds: 30,
 	maxBudgetUsdt: 200,
 	maxTeamPositions: 3,
+	safetyMode: "risk_plus_simulation" as
+		| "risk_only"
+		| "risk_plus_simulation"
+		| "manual_confirm",
+	allowEphemeralStrategy: true,
+	legacySystemEnabled: false,
 });
 
 const busy = computed(
@@ -172,7 +215,12 @@ const isDirty = computed(() => {
 		formModel.enabled !== config.value.enabled ||
 		formModel.intervalSeconds !== config.value.intervalSeconds ||
 		formModel.maxBudgetUsdt !== config.value.maxBudgetUsdt ||
-		formModel.maxTeamPositions !== config.value.maxTeamPositions
+		formModel.maxTeamPositions !== config.value.maxTeamPositions ||
+		formModel.safetyMode !== (masterConfig.value?.safetyMode ?? "risk_plus_simulation") ||
+		formModel.allowEphemeralStrategy !==
+			(masterConfig.value?.allowEphemeralStrategy ?? true) ||
+		formModel.legacySystemEnabled !==
+			(masterConfig.value?.legacySystemEnabled ?? false)
 	);
 });
 
@@ -207,14 +255,22 @@ const resetFormFromConfig = () => {
 	formModel.intervalSeconds = config.value.intervalSeconds;
 	formModel.maxBudgetUsdt = config.value.maxBudgetUsdt;
 	formModel.maxTeamPositions = config.value.maxTeamPositions;
+	formModel.safetyMode = masterConfig.value?.safetyMode ?? "risk_plus_simulation";
+	formModel.allowEphemeralStrategy =
+		masterConfig.value?.allowEphemeralStrategy ?? true;
+	formModel.legacySystemEnabled =
+		masterConfig.value?.legacySystemEnabled ?? false;
 };
 
 const loadConfig = async () => {
 	loadingInit.value = true;
 	loadError.value = null;
 	try {
-		const response = await fetchAgentTeamsConfig();
-		if (!response) {
+		const [response, masterResponse] = await Promise.all([
+			fetchAgentTeamsConfig(),
+			fetchMasterConfig(),
+		]);
+		if (!response || !masterResponse) {
 			loadError.value = "fetch_failed";
 			ElMessage.error("无法获取配置，请检查后端服务");
 			return;
@@ -222,6 +278,7 @@ const loadConfig = async () => {
 
 		const next = normalizeConfig(response);
 		config.value = next;
+		masterConfig.value = masterResponse;
 		resetFormFromConfig();
 
 		const incomplete =
@@ -254,12 +311,20 @@ const saveConfig = async () => {
 			maxBudgetUsdt: formModel.maxBudgetUsdt,
 			maxTeamPositions: formModel.maxTeamPositions,
 		};
-		const response = await updateAgentTeamsConfig(payload);
-		if (!response) {
+		const [response, masterResponse] = await Promise.all([
+			updateAgentTeamsConfig(payload),
+			updateMasterConfig({
+				safetyMode: formModel.safetyMode,
+				allowEphemeralStrategy: formModel.allowEphemeralStrategy,
+				legacySystemEnabled: formModel.legacySystemEnabled,
+			}),
+		]);
+		if (!response || !masterResponse) {
 			ElMessage.error("保存失败，请检查后端服务");
 			return;
 		}
 		config.value = normalizeConfig(response);
+		masterConfig.value = masterResponse;
 		resetFormFromConfig();
 		ElMessage.success("保存成功");
 	} catch (error) {
@@ -374,6 +439,12 @@ onMounted(() => {
 
 .updated-at {
   color: #6b7280;
+}
+
+.hint-text {
+  margin-left: 10px;
+  color: #6b7280;
+  font-size: 12px;
 }
 
 @media (max-width: 768px) {

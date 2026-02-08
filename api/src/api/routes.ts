@@ -31,6 +31,7 @@ import { getQuantoMultiplier } from "../utils/contractUtils";
 import { ipBlacklistMiddleware } from "../middleware/ipBlacklist";
 import { agentTeamsService } from "../agentTeams/service";
 import { agentTeamsOrchestrator } from "../agentTeams/orchestrator";
+import { applyLegacySystemSetting } from "../scheduler/legacySystemControl";
 
 const logger = createLogger({
   name: "api-routes",
@@ -122,10 +123,17 @@ export function createApiRoutes() {
       const exchangeClient = createExchangeClient();
       const gatePositions = await exchangeClient.getPositions();
       
-      // 从数据库获取止损止盈信息
+      // 从数据库获取止损止盈信息（AI交易）
       const dbResult = await dbClient.execute("SELECT symbol, stop_loss, profit_target FROM positions");
       const dbPositionsMap = new Map(
         dbResult.rows.map((row: any) => [row.symbol, row])
+      );
+      // Agent Teams 持仓来源
+      const agentTeamsResult = await dbClient.execute(
+        "SELECT symbol FROM agent_teams_positions WHERE status = 'open'"
+      );
+      const agentTeamsSymbolSet = new Set(
+        agentTeamsResult.rows.map((row: any) => String(row.symbol))
       );
       
       // 过滤并格式化持仓
@@ -138,6 +146,15 @@ export function createApiRoutes() {
           const entryPrice = Number.parseFloat(p.entryPrice || "0");
           const quantity = Math.abs(size);
           const leverage = Number.parseInt(p.leverage || "1");
+          const inLegacy = dbPositionsMap.has(symbol);
+          const inAgentTeams = agentTeamsSymbolSet.has(symbol);
+          const openSource = inLegacy && inAgentTeams
+            ? "来源冲突"
+            : inAgentTeams
+              ? "Agent Teams"
+              : inLegacy
+                ? "AI交易"
+                : "未知来源";
           
           // 开仓价值（保证金）: 从Gate.io API直接获取
           const openValue = Number.parseFloat(p.margin || "0");
@@ -151,6 +168,7 @@ export function createApiRoutes() {
             unrealizedPnl: Number.parseFloat(p.unrealisedPnl || "0"),
             leverage,
             side: size > 0 ? "long" : "short",
+            openSource,
             openValue,
             profitTarget: dbPos?.profit_target ? Number(dbPos.profit_target) : null,
             stopLoss: dbPos?.stop_loss ? Number(dbPos.stop_loss) : null,
@@ -620,6 +638,48 @@ export function createApiRoutes() {
   });
 
   /**
+   * Agent Teams 周期链路详情
+   */
+  app.get("/api/agent-teams/cycle/:id", async (c) => {
+    try {
+      const cycleId = c.req.param("id");
+      const traces = await agentTeamsService.getCycleTrace(cycleId);
+      return c.json({ cycleId, traces });
+    } catch (error: any) {
+      logger.error("获取 Agent Teams 周期链路失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Agent Teams 任务列表
+   */
+  app.get("/api/agent-teams/tasks", async (c) => {
+    try {
+      const teamId = c.req.query("teamId");
+      const cycleId = c.req.query("cycleId");
+      const status = c.req.query("status") as
+        | "pending"
+        | "running"
+        | "succeeded"
+        | "failed"
+        | "skipped"
+        | undefined;
+      const limit = Number.parseInt(c.req.query("limit") || "100");
+      const tasks = await agentTeamsService.getTasks({
+        teamId,
+        cycleId,
+        status,
+        limit,
+      });
+      return c.json({ tasks });
+    } catch (error: any) {
+      logger.error("获取 Agent Teams 任务列表失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
    * Agent Teams 决策详情
    */
   app.get("/api/agent-teams/decision/:id", async (c) => {
@@ -632,6 +692,112 @@ export function createApiRoutes() {
       return c.json(decision);
     } catch (error: any) {
       logger.error("获取 Agent Teams 决策详情失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Master Agent 目标配置
+   */
+  app.get("/api/agent-teams/master/objective", async (c) => {
+    try {
+      const objective = await agentTeamsService.getMasterObjective();
+      return c.json(objective);
+    } catch (error: any) {
+      logger.error("获取 Master Objective 失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  app.put("/api/agent-teams/master/objective", async (c) => {
+    try {
+      const body = await c.req.json();
+      if (typeof body.objectiveText !== "string" || !body.objectiveText.trim()) {
+        return c.json({ error: "objectiveText is required" }, 400);
+      }
+      const objective = await agentTeamsService.setMasterObjective(body.objectiveText.trim());
+      return c.json(objective);
+    } catch (error: any) {
+      logger.error("更新 Master Objective 失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Master Agent 运行配置
+   */
+  app.get("/api/agent-teams/master/config", async (c) => {
+    try {
+      const config = await agentTeamsService.getMasterConfig();
+      return c.json(config);
+    } catch (error: any) {
+      logger.error("获取 Master Config 失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  app.patch("/api/agent-teams/master/config", async (c) => {
+    try {
+      const body = await c.req.json();
+      const patch: Partial<{
+        enabled: boolean;
+        safetyMode: "risk_only" | "risk_plus_simulation" | "manual_confirm";
+        allowEphemeralStrategy: boolean;
+        legacySystemEnabled: boolean;
+      }> = {};
+
+      if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+      if (
+        body.safetyMode === "risk_only" ||
+        body.safetyMode === "risk_plus_simulation" ||
+        body.safetyMode === "manual_confirm"
+      ) {
+        patch.safetyMode = body.safetyMode;
+      }
+      if (typeof body.allowEphemeralStrategy === "boolean") {
+        patch.allowEphemeralStrategy = body.allowEphemeralStrategy;
+      }
+      if (typeof body.legacySystemEnabled === "boolean") {
+        patch.legacySystemEnabled = body.legacySystemEnabled;
+      }
+
+      const config = await agentTeamsService.updateMasterConfig(patch);
+      const teamsConfig = await agentTeamsService.getConfig();
+      applyLegacySystemSetting({
+        legacySystemEnabled: config.legacySystemEnabled,
+        agentTeamsEnabled: teamsConfig?.enabled ?? false,
+      });
+      return c.json(config);
+    } catch (error: any) {
+      logger.error("更新 Master Config 失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  /**
+   * Master Agent 决策日志
+   */
+  app.get("/api/agent-teams/master/decisions", async (c) => {
+    try {
+      const limit = Number.parseInt(c.req.query("limit") || "20");
+      const decisions = await agentTeamsService.getMasterDecisions(limit);
+      return c.json({ decisions });
+    } catch (error: any) {
+      logger.error("获取 Master 决策列表失败:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  app.get("/api/agent-teams/master/decision/:id", async (c) => {
+    try {
+      const decisionId = c.req.param("id");
+      const decision = await agentTeamsService.getMasterDecisionById(decisionId);
+      if (!decision) {
+        return c.json({ error: "not found" }, 404);
+      }
+      return c.json(decision);
+    } catch (error: any) {
+      logger.error("获取 Master 决策详情失败:", error);
       return c.json({ error: error.message }, 500);
     }
   });

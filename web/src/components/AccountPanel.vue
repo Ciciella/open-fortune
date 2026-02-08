@@ -32,6 +32,13 @@
 
     <el-table :data="positions" size="small" max-height="220" empty-text="暂无持仓">
       <el-table-column prop="symbol" label="币种" width="90" />
+      <el-table-column label="来源" width="110">
+        <template #default="{ row }">
+          <el-tag size="small" :type="sourceTagType(row.openSource)">
+            {{ row.openSource ?? "未知来源" }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="方向" width="80">
         <template #default="{ row }">
           <el-tag :type="sideType(row.side)" effect="plain">
@@ -106,4 +113,11 @@ const pnlValueType = (value: number) =>
 
 const sideType = (side: PositionData["side"]) =>
 	side === "long" ? positiveType.value : negativeType.value;
+
+const sourceTagType = (source?: PositionData["openSource"]) => {
+	if (source === "Agent Teams") return "success";
+	if (source === "AI交易") return "info";
+	if (source === "来源冲突") return "danger";
+	return "warning";
+};
 </script>

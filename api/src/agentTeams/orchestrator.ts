@@ -1,9 +1,5 @@
 import { createLogger } from "../utils/loggerUtils";
-import {
-	isTradingLoopRunning,
-	pauseTradingLoop,
-	resumeTradingLoop,
-} from "../scheduler/tradingLoop";
+import { applyLegacySystemSetting } from "../scheduler/legacySystemControl";
 import { agentTeamsRepository } from "./repository";
 import { agentTeamsScheduler } from "./scheduler";
 
@@ -27,10 +23,12 @@ export class AgentTeamsOrchestrator {
 
 	async applyEnabledState(enabled: boolean, intervalSeconds?: number) {
 		if (enabled) {
-			if (isTradingLoopRunning()) {
-				pauseTradingLoop();
-				logger.info("已暂停原有交易循环（切换到 Agent Teams）");
-			}
+			const masterConfig = await agentTeamsRepository.getMasterConfig();
+			applyLegacySystemSetting({
+				legacySystemEnabled: masterConfig?.legacySystemEnabled ?? false,
+				agentTeamsEnabled: true,
+			});
+			logger.info("已关闭旧系统执行链路（切换到 Agent Teams）");
 			await agentTeamsScheduler.start(intervalSeconds || 30);
 			return;
 		}
@@ -40,10 +38,16 @@ export class AgentTeamsOrchestrator {
 			logger.info("已停止 Agent Teams 调度器");
 		}
 
-		if (!isTradingLoopRunning()) {
-			resumeTradingLoop();
-			logger.info("已恢复原有交易循环");
-		}
+		const masterConfig = await agentTeamsRepository.getMasterConfig();
+		applyLegacySystemSetting({
+			legacySystemEnabled: masterConfig?.legacySystemEnabled ?? false,
+			agentTeamsEnabled: false,
+		});
+		logger.info(
+			(masterConfig?.legacySystemEnabled ?? false)
+				? "已恢复旧系统执行链路"
+				: "旧系统开关关闭，保持停止",
+		);
 	}
 
 	async refreshFromConfig() {

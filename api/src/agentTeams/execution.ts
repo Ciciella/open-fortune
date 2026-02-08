@@ -2,7 +2,7 @@ import { getChinaTimeISO } from "../utils/timeUtils";
 import { getQuantoMultiplier } from "../utils/contractUtils";
 import { createLogger } from "../utils/loggerUtils";
 import type { IExchangeClient } from "../services/exchangeClient";
-import type { CandidateAction } from "./types";
+import type { ExecutionPlan } from "./types";
 
 const logger = createLogger({
 	name: "agent-teams-execution",
@@ -24,16 +24,15 @@ function getLotDecimals(lotSize: number): number {
 }
 
 export async function executeCandidateOrder(input: {
-	candidate: CandidateAction;
-	marginUsdt: number;
+	plan: ExecutionPlan;
 	exchangeClient: IExchangeClient;
 }): Promise<ExecutionResult> {
-	const { candidate, marginUsdt, exchangeClient } = input;
-	const contract = `${candidate.symbol}_USDT`;
+	const { plan, exchangeClient } = input;
+	const contract = `${plan.symbol}_USDT`;
 	const now = getChinaTimeISO();
 
 	try {
-		await exchangeClient.setLeverage(contract, candidate.leverage);
+		await exchangeClient.setLeverage(contract, plan.leverage);
 		const ticker = await exchangeClient.getFuturesTicker(contract);
 		const contractInfo = await exchangeClient.getContractInfo(contract);
 		const markPrice = Number.parseFloat(ticker.last || "0");
@@ -55,7 +54,7 @@ export async function executeCandidateOrder(input: {
 		const minSize = Number.parseFloat(
 			contractInfo.orderSizeMin || contractInfo.order_size_min || "1",
 		);
-		let quantity = (marginUsdt * candidate.leverage) / (markPrice * quantoMultiplier);
+		let quantity = (plan.marginUsdt * plan.leverage) / (markPrice * quantoMultiplier);
 		if (lotSize > 0) {
 			quantity = Math.floor(quantity / lotSize) * lotSize;
 			quantity = Number.parseFloat(quantity.toFixed(getLotDecimals(lotSize)));
@@ -73,7 +72,7 @@ export async function executeCandidateOrder(input: {
 			};
 		}
 
-		const size = candidate.side === "long" ? quantity : -quantity;
+		const size = plan.side === "long" ? quantity : -quantity;
 		const order = await exchangeClient.placeOrder({
 			contract,
 			size,
@@ -84,7 +83,7 @@ export async function executeCandidateOrder(input: {
 			orderId: String(order.id || `fallback_${Date.now()}`),
 			price: markPrice,
 			quantity,
-			message: `已执行 ${candidate.symbol} ${candidate.side} 开仓`,
+			message: `已执行 ${plan.symbol} ${plan.side} 开仓`,
 			exchangeRaw: JSON.stringify(order),
 		};
 	} catch (error) {

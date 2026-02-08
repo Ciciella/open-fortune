@@ -17,6 +17,7 @@ export interface StrategyData {
 export interface PositionData {
 	symbol: string;
 	side: "long" | "short";
+	openSource?: "AI交易" | "Agent Teams" | "未知来源" | "来源冲突";
 	leverage?: number;
 	entryPrice: number;
 	openValue: number;
