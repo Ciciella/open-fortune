@@ -135,26 +135,109 @@ export function createApiRoutes() {
       const agentTeamsSymbolSet = new Set(
         agentTeamsResult.rows.map((row: any) => String(row.symbol))
       );
+      // 来源兜底：当实时持仓未被两个持仓表直接命中时，按最近开仓记录判断来源
+      const [agentTeamsOpenOrdersResult, aiOpenTradesResult, agentTeamsDecisionsResult] =
+        await Promise.all([
+        dbClient.execute(
+          `SELECT symbol, MAX(created_at) AS last_open_at
+           FROM agent_teams_orders
+           WHERE action = 'open'
+           GROUP BY symbol`
+        ),
+        dbClient.execute(
+          `SELECT symbol, MAX(timestamp) AS last_open_at
+           FROM trades
+           WHERE type = 'open'
+          GROUP BY symbol`
+        ),
+        dbClient.execute(
+          `SELECT signal_summary, decision_text, created_at
+           FROM agent_teams_decisions
+           ORDER BY created_at DESC
+           LIMIT 300`
+        ),
+      ]);
+      const agentTeamsOpenMap = new Map<string, string>(
+        agentTeamsOpenOrdersResult.rows.map((row: any) => [
+          String(row.symbol).replace(/_USDT$/i, "").toUpperCase(),
+          String(row.last_open_at || ""),
+        ]),
+      );
+      const aiOpenMap = new Map<string, string>(
+        aiOpenTradesResult.rows.map((row: any) => [
+          String(row.symbol).replace(/_USDT$/i, "").toUpperCase(),
+          String(row.last_open_at || ""),
+        ]),
+      );
+      const agentTeamsDecisionMap = new Map<string, string>();
+      for (const row of agentTeamsOpenOrdersResult.rows) {
+        const symbol = String((row as any).symbol || "")
+          .replace(/_USDT$/i, "")
+          .toUpperCase();
+        const createdAt = String((row as any).last_open_at || "");
+        if (symbol) {
+          agentTeamsDecisionMap.set(symbol, createdAt);
+        }
+      }
+      const toTs = (value?: string) => {
+        if (!value) return Number.NEGATIVE_INFINITY;
+        const normalized = value.replace(" ", "T");
+        const ts = Date.parse(normalized);
+        return Number.isFinite(ts) ? ts : Number.NEGATIVE_INFINITY;
+      };
+      for (const row of agentTeamsDecisionsResult.rows) {
+        const signalSummary = String((row as any).signal_summary || "");
+        const decisionText = String((row as any).decision_text || "");
+        const createdAt = String((row as any).created_at || "");
+        const matched = (signalSummary.match(/\b[A-Z]{2,10}\b/) ||
+          decisionText.match(/\b[A-Z]{2,10}\b/))?.[0];
+        if (!matched) {
+          continue;
+        }
+        const normalizedSymbol = matched.replace(/_USDT$/i, "").toUpperCase();
+        if (!agentTeamsDecisionMap.has(normalizedSymbol)) {
+          agentTeamsDecisionMap.set(normalizedSymbol, createdAt);
+        }
+      }
       
       // 过滤并格式化持仓
       const positions = gatePositions
         .filter((p: any) => Number.parseInt(p.size || "0") !== 0)
         .map((p: any) => {
           const size = Number.parseInt(p.size || "0");
-          const symbol = p.contract.replace("_USDT", "");
+          const symbol = String(p.contract || "")
+            .replace(/_USDT$/i, "")
+            .toUpperCase();
           const dbPos = dbPositionsMap.get(symbol);
           const entryPrice = Number.parseFloat(p.entryPrice || "0");
           const quantity = Math.abs(size);
           const leverage = Number.parseInt(p.leverage || "1");
           const inLegacy = dbPositionsMap.has(symbol);
           const inAgentTeams = agentTeamsSymbolSet.has(symbol);
-          const openSource = inLegacy && inAgentTeams
-            ? "来源冲突"
-            : inAgentTeams
-              ? "Agent Teams"
-              : inLegacy
-                ? "AI交易"
-                : "未知来源";
+          let openSource: "AI交易" | "Agent Teams" | "未知来源" | "来源冲突" =
+            inLegacy && inAgentTeams
+              ? "来源冲突"
+              : inAgentTeams
+                ? "Agent Teams"
+                : inLegacy
+                  ? "AI交易"
+                  : "未知来源";
+
+          if (openSource === "未知来源") {
+            const agentTeamsLastOpen = agentTeamsOpenMap.get(symbol);
+            const aiLastOpen = aiOpenMap.get(symbol);
+            const agentTeamsTs = toTs(agentTeamsLastOpen);
+            const aiTs = toTs(aiLastOpen);
+            if (Number.isFinite(agentTeamsTs) || Number.isFinite(aiTs)) {
+              if (!Number.isFinite(aiTs) || agentTeamsTs >= aiTs) {
+                openSource = "Agent Teams";
+              } else {
+                openSource = "AI交易";
+              }
+            } else if (agentTeamsDecisionMap.has(symbol)) {
+              openSource = "Agent Teams";
+            }
+          }
           
           // 开仓价值（保证金）: 从Gate.io API直接获取
           const openValue = Number.parseFloat(p.margin || "0");
@@ -252,24 +335,130 @@ export function createApiRoutes() {
         return c.json({ trades: [] });
       }
       
+      const toTs = (value?: string | null) => {
+        if (!value) return Number.NaN;
+        const normalized = value.replace(" ", "T");
+        const ts = Date.parse(normalized);
+        return Number.isFinite(ts) ? ts : Number.NaN;
+      };
+      const buildKey = (symbol: string, side: string) => `${symbol}::${side}`;
+
+      type OpenLot = { timestamp: string; quantity: number };
+      const openLotsMap = new Map<string, OpenLot[]>();
+      const closeRows = result.rows.filter((row: any) => row.type === "close");
+      const uniqueKeys = Array.from(
+        new Set(closeRows.map((row: any) => buildKey(String(row.symbol), String(row.side)))),
+      );
+
+      await Promise.all(
+        uniqueKeys.map(async (key) => {
+          const [symbol, side] = key.split("::");
+          const [legacyOpenResult, agentOpenResult] = await Promise.all([
+            dbClient.execute({
+              sql: `SELECT timestamp, quantity
+                    FROM trades
+                    WHERE symbol = ? AND side = ? AND type = 'open'
+                    ORDER BY timestamp ASC`,
+              args: [symbol, side],
+            }),
+            dbClient.execute({
+              sql: `SELECT created_at AS timestamp, quantity
+                    FROM agent_teams_orders
+                    WHERE symbol = ? AND side = ? AND action = 'open'
+                      AND quantity > 0
+                      AND status NOT IN ('rejected', 'failed', 'cancelled')
+                    ORDER BY created_at ASC`,
+              args: [symbol, side],
+            }),
+          ]);
+
+          const lots: OpenLot[] = [
+            ...legacyOpenResult.rows.map((row: any) => ({
+              timestamp: String(row.timestamp),
+              quantity: Number(row.quantity || 0),
+            })),
+            ...agentOpenResult.rows.map((row: any) => ({
+              timestamp: String(row.timestamp),
+              quantity: Number(row.quantity || 0),
+            })),
+          ]
+            .filter((lot) => lot.quantity > 0 && Number.isFinite(toTs(lot.timestamp)))
+            .sort((a, b) => toTs(a.timestamp) - toTs(b.timestamp));
+
+          openLotsMap.set(key, lots);
+        }),
+      );
+
+      const matchedOpenTimestampById = new Map<number, string | null>();
+      const sortedCloseRows = [...closeRows].sort(
+        (a: any, b: any) => toTs(String(a.timestamp)) - toTs(String(b.timestamp)),
+      );
+      for (const closeRow of sortedCloseRows) {
+        const key = buildKey(String(closeRow.symbol), String(closeRow.side));
+        const lots = openLotsMap.get(key) ?? [];
+        let remaining = Number(closeRow.quantity || 0);
+        let matchedOpenTimestamp: string | null = null;
+
+        while (remaining > 0 && lots.length > 0) {
+          const lot = lots[0];
+          if (lot.quantity <= 0) {
+            lots.shift();
+            continue;
+          }
+          if (!matchedOpenTimestamp) {
+            matchedOpenTimestamp = lot.timestamp;
+          }
+          const consumed = Math.min(remaining, lot.quantity);
+          remaining -= consumed;
+          lot.quantity -= consumed;
+          if (lot.quantity <= 0) {
+            lots.shift();
+          }
+        }
+
+        // 数量无法配对时，不展示开仓时间，避免误导
+        matchedOpenTimestampById.set(
+          Number(closeRow.id),
+          remaining > 0 ? null : matchedOpenTimestamp,
+        );
+      }
+
       // 转换数据库格式到前端需要的格式
       const trades = result.rows.map((row: any) => {
+        const type = row.type as "open" | "close";
+        const closeTimestamp = type === "close" ? String(row.timestamp) : null;
+        const openTimestamp =
+          type === "open"
+            ? String(row.timestamp)
+            : matchedOpenTimestampById.get(Number(row.id)) ?? null;
+        let holdingDurationSec: number | null = null;
+        if (type === "close" && openTimestamp && closeTimestamp) {
+          const openTs = toTs(openTimestamp);
+          const closeTs = toTs(closeTimestamp);
+          if (Number.isFinite(openTs) && Number.isFinite(closeTs) && closeTs >= openTs) {
+            holdingDurationSec = Math.floor((closeTs - openTs) / 1000);
+          }
+        }
+
         return {
           id: row.id,
           orderId: row.order_id,
           symbol: row.symbol,
           side: row.side, // long/short
-          type: row.type, // open/close
+          type, // open/close
           price: Number.parseFloat(row.price || "0"),
           quantity: Number.parseFloat(row.quantity || "0"),
           leverage: Number.parseInt(row.leverage || "1"),
           pnl: row.pnl ? Number.parseFloat(row.pnl) : null,
           fee: Number.parseFloat(row.fee || "0"),
           timestamp: row.timestamp,
+          openTimestamp,
+          closeTimestamp,
+          holdingDurationSec,
           status: row.status,
         };
       });
-      
+
       return c.json({ trades });
     } catch (error: any) {
       logger.error("获取历史仓位失败:", error);

@@ -39,6 +39,9 @@ export interface TradeData {
 	fee: number;
 	pnl?: number | null;
 	symbol: string;
+	openTimestamp?: string | null;
+	closeTimestamp?: string | null;
+	holdingDurationSec?: number | null;
 }
 
 export interface TradesResponse {

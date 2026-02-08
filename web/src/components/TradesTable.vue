@@ -19,6 +19,21 @@
           {{ formatTime(row.timestamp) }}
         </template>
       </el-table-column>
+      <el-table-column label="开仓时间" width="170">
+        <template #default="{ row }">
+          {{ row.openTimestamp ? formatTime(row.openTimestamp) : "-" }}
+        </template>
+      </el-table-column>
+      <el-table-column label="平仓时间" width="170">
+        <template #default="{ row }">
+          {{ row.closeTimestamp ? formatTime(row.closeTimestamp) : "-" }}
+        </template>
+      </el-table-column>
+      <el-table-column label="持仓时长" width="120">
+        <template #default="{ row }">
+          {{ formatDuration(row.holdingDurationSec) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="symbol" label="币种" width="90" />
       <el-table-column label="类型" width="90">
         <template #default="{ row }">
@@ -64,6 +79,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { TradeData } from "../services/api";
+import { formatDateTime } from "../utils/dateTime";
 
 const props = defineProps<{
 	trades: TradeData[];
@@ -75,15 +91,23 @@ const positiveType = computed(() => (props.isReversed ? "success" : "danger"));
 const negativeType = computed(() => (props.isReversed ? "danger" : "success"));
 
 const formatTime = (timestamp: string) => {
-	const date = new Date(timestamp);
-	return date.toLocaleString("zh-CN", {
-		timeZone: "Asia/Shanghai",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	});
+	return formatDateTime(timestamp);
+};
+
+const formatDuration = (seconds?: number | null) => {
+	if (seconds === null || seconds === undefined || Number.isNaN(seconds)) {
+		return "-";
+	}
+	if (seconds < 60) {
+		return `${seconds}s`;
+	}
+	const hours = Math.floor(seconds / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	const remainSeconds = seconds % 60;
+	if (hours > 0) {
+		return `${hours}h ${minutes}m ${remainSeconds}s`;
+	}
+	return `${minutes}m ${remainSeconds}s`;
 };
 
 const formatPnl = (trade: TradeData) => {

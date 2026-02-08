@@ -174,6 +174,7 @@ import {
 	type AgentTeamsConfigResponse,
 	type MasterConfigResponse,
 } from "../services/agentTeams";
+import { formatDateTime } from "../utils/dateTime";
 
 const config = ref<AgentTeamsConfigResponse | null>(null);
 const masterConfig = ref<MasterConfigResponse | null>(null);
@@ -374,15 +375,7 @@ const handleStop = async () => {
 	}
 };
 
-const formatTime = (value: string) =>
-	new Date(value).toLocaleString("zh-CN", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	});
+const formatTime = (value: string) => formatDateTime(value);
 
 onMounted(() => {
 	void loadConfig();

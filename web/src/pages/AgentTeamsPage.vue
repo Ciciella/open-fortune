@@ -184,6 +184,7 @@ import {
 	type MasterDecisionEvent,
 	updateMasterObjective,
 } from "../services/agentTeams";
+import { formatDateTime } from "../utils/dateTime";
 
 const overview = ref<AgentTeamsOverview | null>(null);
 const masterConfig = ref<MasterConfigResponse | null>(null);
@@ -224,12 +225,7 @@ const selectedRationale = computed(() => {
 const formatPercent = (value?: number) =>
 	typeof value === "number" ? `${value.toFixed(1)}%` : "-";
 
-const formatTime = (time: string) =>
-	new Date(time).toLocaleTimeString("zh-CN", {
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	});
+const formatTime = (time: string) => formatDateTime(time);
 
 const loadAll = async () => {
 	loadingOverview.value = true;

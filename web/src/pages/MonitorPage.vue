@@ -115,6 +115,7 @@ import {
 	fetchTrades,
 } from "../services/api";
 import { fetchAgentTeamsConfig } from "../services/agentTeams";
+import { formatDateTime } from "../utils/dateTime";
 
 const account = ref<AccountData | null>(null);
 const strategy = ref<StrategyData | null>(null);
@@ -176,15 +177,7 @@ const decisionTime = computed(() => {
 		return logsLoading.value ? "加载中..." : "无数据";
 	}
 
-	const date = new Date(logEntry.value.timestamp);
-	return date.toLocaleString("zh-CN", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	});
+	return formatDateTime(logEntry.value.timestamp);
 });
 
 const decisionIteration = computed(() => {

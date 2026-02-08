@@ -18,6 +18,7 @@
 import { Chart, type ChartData, type ChartOptions } from "chart.js/auto";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { HistoryEntry } from "../services/api";
+import { formatDateTime } from "../utils/dateTime";
 
 const props = defineProps<{
 	history: HistoryEntry[];
@@ -29,15 +30,7 @@ const chartRef = ref<Chart | null>(null);
 const hasData = computed(() => props.history.length > 0);
 
 const buildLabels = (items: HistoryEntry[]) =>
-	items.map((entry) => {
-		const date = new Date(entry.timestamp);
-		return date.toLocaleString("zh-CN", {
-			month: "2-digit",
-			day: "2-digit",
-			hour: "2-digit",
-			minute: "2-digit",
-		});
-	});
+	items.map((entry) => formatDateTime(entry.timestamp));
 
 const buildDataset = (items: HistoryEntry[]) =>
 	items.map((entry) => Number(entry.totalValue.toFixed(2)));
