@@ -53,6 +53,13 @@
             >
               配置
             </router-link>
+            <router-link
+              class="nav-link-btn"
+              to="/docs"
+              exact-active-class="active"
+            >
+              文档
+            </router-link>
           </div>
         </el-col>
         <el-col :xs="24" :md="6" class="header-actions">
