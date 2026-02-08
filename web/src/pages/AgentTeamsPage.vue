@@ -34,19 +34,19 @@
         <el-row :gutter="12">
           <el-col :xs="24" :sm="8">
             <el-card shadow="never" class="metric-card">
-              <div class="metric-value">{{ masterConfig?.safetyMode ?? "-" }}</div>
+              <div class="metric-value">{{ formatSafetyMode(masterConfig?.safetyMode) }}</div>
               <div class="metric-label">安全模式</div>
             </el-card>
           </el-col>
           <el-col :xs="24" :sm="8">
             <el-card shadow="never" class="metric-card">
-              <div class="metric-value">{{ latestDecision?.selectedStrategy ?? "-" }}</div>
+              <div class="metric-value">{{ formatStrategyName(latestDecision?.selectedStrategy) }}</div>
               <div class="metric-label">当前策略</div>
             </el-card>
           </el-col>
           <el-col :xs="24" :sm="8">
             <el-card shadow="never" class="metric-card">
-              <div class="metric-value">{{ latestDecision?.strategySource ?? "-" }}</div>
+              <div class="metric-value">{{ formatStrategySource(latestDecision?.strategySource) }}</div>
               <div class="metric-label">策略来源</div>
             </el-card>
           </el-col>
@@ -88,11 +88,13 @@
                   @click="handleSelectDecision(decision.id)"
                 >
                   <div class="decision-title">
-                    {{ formatTime(decision.timestamp) }} | {{ decision.selectedStrategy ?? decision.decision }}
+                    {{ formatTime(decision.timestamp) }} | {{ formatStrategyName(decision.selectedStrategy) }}
                   </div>
                   <div class="decision-text">目标：{{ decision.signal }}</div>
                   <div class="decision-text">选型理由：{{ decision.decision }}</div>
-                  <div class="decision-text risk-text">门控：{{ decision.riskVerdict }} | {{ decision.riskReason }}</div>
+                  <div class="decision-text risk-text">
+                    门控：{{ formatRiskVerdict(decision.riskVerdict) }} | {{ formatGateSummary(decision.riskReason) }}
+                  </div>
                 </div>
                 <el-empty
                   v-if="(overview?.decisions ?? []).length === 0"
@@ -110,16 +112,16 @@
               <el-space direction="vertical" fill>
                 <el-card shadow="never" class="detail-block">
                   <div class="detail-title">执行概览</div>
-                  <div class="detail-item"><span class="detail-label">策略：</span>{{ selectedDecision?.selectedStrategy ?? "-" }}</div>
-                  <div class="detail-item"><span class="detail-label">来源：</span>{{ selectedDecision?.strategySource ?? "-" }}</div>
-                  <div class="detail-item"><span class="detail-label">执行：</span>{{ selectedDecision?.executionResult ?? "-" }}</div>
+                  <div class="detail-item"><span class="detail-label">策略：</span>{{ formatStrategyName(selectedDecision?.selectedStrategy) }}</div>
+                  <div class="detail-item"><span class="detail-label">来源：</span>{{ formatStrategySource(selectedDecision?.strategySource) }}</div>
+                  <div class="detail-item"><span class="detail-label">执行：</span>{{ formatExecutionResult(selectedDecision?.executionResult) }}</div>
                 </el-card>
 
                 <el-card shadow="never" class="detail-block">
                   <div class="detail-title">结构化思考</div>
                   <div class="detail-item"><span class="detail-label">目标解析：</span>{{ selectedRationale?.objectiveSummary ?? "-" }}</div>
                   <div class="detail-item"><span class="detail-label">选型原因：</span>{{ selectedRationale?.selectionReason ?? "-" }}</div>
-                  <div class="detail-item"><span class="detail-label">门控摘要：</span>{{ selectedRationale?.gateSummary ?? "-" }}</div>
+                  <div class="detail-item"><span class="detail-label">门控摘要：</span>{{ formatGateSummary(selectedRationale?.gateSummary) }}</div>
                   <div class="detail-item">
                     <el-button
                       size="small"
@@ -226,6 +228,55 @@ const formatPercent = (value?: number) =>
 	typeof value === "number" ? `${value.toFixed(1)}%` : "-";
 
 const formatTime = (time: string) => formatDateTime(time);
+
+const formatSafetyMode = (mode?: string) => {
+	if (mode === "risk_only") return "仅风控";
+	if (mode === "risk_plus_simulation") return "风控+模拟";
+	if (mode === "manual_confirm") return "人工确认";
+	return mode ?? "-";
+};
+
+const formatStrategySource = (source?: string) => {
+	if (source === "builtin") return "内置";
+	if (source === "ephemeral") return "临时";
+	return source ?? "-";
+};
+
+const formatStrategyName = (name?: string) => {
+	if (!name) return "-";
+	const map: Record<string, string> = {
+		trend_follow_master: "趋势跟随主策略",
+		arbitrage_master: "套利主策略",
+		market_making_master: "做市主策略",
+	};
+	return map[name] ?? name;
+};
+
+const formatRiskVerdict = (verdict?: string) => {
+	if (verdict === "pass") return "通过";
+	if (verdict === "reduce") return "降级";
+	if (verdict === "reject") return "拒绝";
+	return verdict ?? "-";
+};
+
+const formatExecutionResult = (value?: string) => {
+	if (!value) return "-";
+	if (value.includes("Do not know how to serialize a BigInt")) {
+		return "执行结果序列化失败：返回值包含 BigInt";
+	}
+	return value;
+};
+
+const formatGateSummary = (value?: string) => {
+	if (!value) return "-";
+	return value
+		.replace(/^pass\s*:/i, "通过：")
+		.replace(/^reject\s*:/i, "拒绝：")
+		.replace(/^reduce\s*:/i, "降级：")
+		.replace(/\|\s*pass\s*:/gi, "| 通过：")
+		.replace(/\|\s*reject\s*:/gi, "| 拒绝：")
+		.replace(/\|\s*reduce\s*:/gi, "| 降级：");
+};
 
 const loadAll = async () => {
 	loadingOverview.value = true;

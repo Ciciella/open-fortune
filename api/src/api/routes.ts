@@ -41,6 +41,38 @@ const logger = createLogger({
 const dbClient = createClient({
   url: process.env.DATABASE_URL || "file:./.voltagent/trading.db",
 });
+let tradesOpenSourceColumnEnsured = false;
+let tradesOpenTimestampColumnEnsured = false;
+
+async function ensureTradesOpenSourceColumn() {
+  if (tradesOpenSourceColumnEnsured) {
+    return;
+  }
+  try {
+    await dbClient.execute(
+      "ALTER TABLE trades ADD COLUMN open_source TEXT",
+    );
+  } catch {
+    // ignore existing column errors
+  } finally {
+    tradesOpenSourceColumnEnsured = true;
+  }
+}
+
+async function ensureTradesOpenTimestampColumn() {
+  if (tradesOpenTimestampColumnEnsured) {
+    return;
+  }
+  try {
+    await dbClient.execute(
+      "ALTER TABLE trades ADD COLUMN open_timestamp TEXT",
+    );
+  } catch {
+    // ignore existing column errors
+  } finally {
+    tradesOpenTimestampColumnEnsured = true;
+  }
+}
 
 export function createApiRoutes() {
   const app = new Hono();
@@ -342,8 +374,30 @@ export function createApiRoutes() {
         return Number.isFinite(ts) ? ts : Number.NaN;
       };
       const buildKey = (symbol: string, side: string) => `${symbol}::${side}`;
+      type OpenSource = "AI交易" | "Agent Teams" | "未知来源" | "来源冲突";
+      const getSourceFromSet = (sources: Set<OpenSource>): OpenSource => {
+        if (sources.size === 0) return "未知来源";
+        if (sources.size === 1) return Array.from(sources)[0] ?? "未知来源";
+        return "来源冲突";
+      };
 
-      type OpenLot = { timestamp: string; quantity: number };
+      const allAgentOpenOrderIds = new Set<string>();
+      const allAgentOpenOrderIdsResult = await dbClient.execute({
+        sql: `SELECT order_id
+              FROM agent_teams_orders
+              WHERE action = 'open'
+                AND quantity > 0
+                AND status NOT IN ('rejected', 'failed', 'cancelled')`,
+        args: [],
+      });
+      for (const row of allAgentOpenOrderIdsResult.rows) {
+        const orderId = String((row as any).order_id || "");
+        if (orderId) {
+          allAgentOpenOrderIds.add(orderId);
+        }
+      }
+
+      type OpenLot = { timestamp: string; quantity: number; source: OpenSource };
       const openLotsMap = new Map<string, OpenLot[]>();
       const closeRows = result.rows.filter((row: any) => row.type === "close");
       const uniqueKeys = Array.from(
@@ -355,14 +409,14 @@ export function createApiRoutes() {
           const [symbol, side] = key.split("::");
           const [legacyOpenResult, agentOpenResult] = await Promise.all([
             dbClient.execute({
-              sql: `SELECT timestamp, quantity
+              sql: `SELECT timestamp, quantity, order_id
                     FROM trades
                     WHERE symbol = ? AND side = ? AND type = 'open'
                     ORDER BY timestamp ASC`,
               args: [symbol, side],
             }),
             dbClient.execute({
-              sql: `SELECT created_at AS timestamp, quantity
+              sql: `SELECT created_at AS timestamp, quantity, order_id
                     FROM agent_teams_orders
                     WHERE symbol = ? AND side = ? AND action = 'open'
                       AND quantity > 0
@@ -376,10 +430,14 @@ export function createApiRoutes() {
             ...legacyOpenResult.rows.map((row: any) => ({
               timestamp: String(row.timestamp),
               quantity: Number(row.quantity || 0),
+              source: allAgentOpenOrderIds.has(String(row.order_id || ""))
+                ? ("Agent Teams" as const)
+                : ("AI交易" as const),
             })),
             ...agentOpenResult.rows.map((row: any) => ({
               timestamp: String(row.timestamp),
               quantity: Number(row.quantity || 0),
+              source: "Agent Teams" as const,
             })),
           ]
             .filter((lot) => lot.quantity > 0 && Number.isFinite(toTs(lot.timestamp)))
@@ -390,6 +448,7 @@ export function createApiRoutes() {
       );
 
       const matchedOpenTimestampById = new Map<number, string | null>();
+      const matchedOpenSourceById = new Map<number, OpenSource>();
       const sortedCloseRows = [...closeRows].sort(
         (a: any, b: any) => toTs(String(a.timestamp)) - toTs(String(b.timestamp)),
       );
@@ -398,6 +457,7 @@ export function createApiRoutes() {
         const lots = openLotsMap.get(key) ?? [];
         let remaining = Number(closeRow.quantity || 0);
         let matchedOpenTimestamp: string | null = null;
+        const matchedSources = new Set<OpenSource>();
 
         while (remaining > 0 && lots.length > 0) {
           const lot = lots[0];
@@ -408,6 +468,7 @@ export function createApiRoutes() {
           if (!matchedOpenTimestamp) {
             matchedOpenTimestamp = lot.timestamp;
           }
+          matchedSources.add(lot.source);
           const consumed = Math.min(remaining, lot.quantity);
           remaining -= consumed;
           lot.quantity -= consumed;
@@ -421,16 +482,34 @@ export function createApiRoutes() {
           Number(closeRow.id),
           remaining > 0 ? null : matchedOpenTimestamp,
         );
+        matchedOpenSourceById.set(
+          Number(closeRow.id),
+          remaining > 0 ? "未知来源" : getSourceFromSet(matchedSources),
+        );
       }
 
       // 转换数据库格式到前端需要的格式
       const trades = result.rows.map((row: any) => {
         const type = row.type as "open" | "close";
         const closeTimestamp = type === "close" ? String(row.timestamp) : null;
+        const explicitOpenTimestamp = String((row as any).open_timestamp || "");
         const openTimestamp =
           type === "open"
             ? String(row.timestamp)
-            : matchedOpenTimestampById.get(Number(row.id)) ?? null;
+            : explicitOpenTimestamp ||
+                (matchedOpenTimestampById.get(Number(row.id)) ?? null);
+        const explicitOpenSource = String((row as any).open_source || "");
+        const openSource: OpenSource =
+          explicitOpenSource === "AI交易" ||
+          explicitOpenSource === "Agent Teams" ||
+          explicitOpenSource === "未知来源" ||
+          explicitOpenSource === "来源冲突"
+            ? (explicitOpenSource as OpenSource)
+            : type === "open"
+              ? allAgentOpenOrderIds.has(String(row.order_id || ""))
+                ? "Agent Teams"
+                : "AI交易"
+              : matchedOpenSourceById.get(Number(row.id)) ?? "未知来源";
         let holdingDurationSec: number | null = null;
         if (type === "close" && openTimestamp && closeTimestamp) {
           const openTs = toTs(openTimestamp);
@@ -453,6 +532,7 @@ export function createApiRoutes() {
           fee: Number.parseFloat(row.fee || "0"),
           timestamp: row.timestamp,
           openTimestamp,
+          openSource,
           closeTimestamp,
           holdingDurationSec,
           status: row.status,
@@ -625,7 +705,11 @@ export function createApiRoutes() {
     try {
       // 获取请求体
       const body = await c.req.json();
-      const { symbol, password } = body;
+      const { symbol, password, openSource } = body as {
+        symbol?: string;
+        password?: string;
+        openSource?: string;
+      };
       
       // 验证必填参数
       if (!symbol) {
@@ -735,13 +819,50 @@ export function createApiRoutes() {
       const actualCloseFee = actualExitPrice * quantity * quantoMultiplier * takerFee;
       const actualPnl = grossPnl - openFee - actualCloseFee;
       
+      const normalizedOpenSource =
+        openSource === "AI交易" ||
+        openSource === "Agent Teams" ||
+        openSource === "未知来源" ||
+        openSource === "来源冲突"
+          ? openSource
+          : "未知来源";
+
+      await ensureTradesOpenSourceColumn();
+      await ensureTradesOpenTimestampColumn();
+
+      // 优先使用数据库记录的开仓时间；其次使用 Agent Teams 持仓记录；最后回退到交易所持仓创建时间
+      const positionOpenedAtResult = await dbClient.execute({
+        sql: "SELECT opened_at FROM positions WHERE symbol = ? LIMIT 1",
+        args: [symbol],
+      });
+      const agentTeamsOpenedAtResult = await dbClient.execute({
+        sql: `SELECT opened_at
+              FROM agent_teams_positions
+              WHERE symbol = ? AND status = 'open'
+              ORDER BY opened_at DESC
+              LIMIT 1`,
+        args: [symbol],
+      });
+      const gateCreateTime = (gatePosition as any).create_time;
+      const gateOpenedAt =
+        typeof gateCreateTime === "number"
+          ? new Date(gateCreateTime * 1000).toISOString()
+          : typeof gateCreateTime === "string" && gateCreateTime
+            ? gateCreateTime
+            : null;
+      const openTimestamp =
+        String(positionOpenedAtResult.rows[0]?.opened_at || "") ||
+        String(agentTeamsOpenedAtResult.rows[0]?.opened_at || "") ||
+        gateOpenedAt ||
+        null;
+
       // 记录到交易历史
       try {
         logger.info(`准备记录平仓交易到数据库: ${symbol}, 订单ID: ${order.id || `manual_${Date.now()}`}`);
         
         const insertResult = await dbClient.execute({
-          sql: `INSERT INTO trades (order_id, symbol, side, type, price, quantity, leverage, pnl, fee, timestamp, status)
-                VALUES (?, ?, ?, 'close', ?, ?, ?, ?, ?, ?, ?)`,
+          sql: `INSERT INTO trades (order_id, symbol, side, type, price, quantity, leverage, pnl, fee, timestamp, status, open_source, open_timestamp)
+                VALUES (?, ?, ?, 'close', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
             order.id || `manual_${Date.now()}`,
             symbol,
@@ -753,6 +874,8 @@ export function createApiRoutes() {
             openFee + actualCloseFee,
             getChinaTimeISO(),
             orderStatus,
+            normalizedOpenSource,
+            openTimestamp,
           ],
         });
         

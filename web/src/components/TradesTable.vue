@@ -34,6 +34,13 @@
           {{ formatDuration(row.holdingDurationSec) }}
         </template>
       </el-table-column>
+      <el-table-column label="开仓来源" width="120">
+        <template #default="{ row }">
+          <el-tag size="small" :type="sourceTagType(row.openSource)">
+            {{ row.openSource ?? "未知来源" }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="symbol" label="币种" width="90" />
       <el-table-column label="类型" width="90">
         <template #default="{ row }">
@@ -128,4 +135,11 @@ const pnlType = (trade: TradeData) => {
 
 const sideType = (side: TradeData["side"]) =>
 	side === "long" ? positiveType.value : negativeType.value;
+
+const sourceTagType = (source?: TradeData["openSource"]) => {
+	if (source === "Agent Teams") return "success";
+	if (source === "AI交易") return "info";
+	if (source === "来源冲突") return "danger";
+	return "warning";
+};
 </script>

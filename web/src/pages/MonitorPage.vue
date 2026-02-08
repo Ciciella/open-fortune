@@ -219,7 +219,10 @@ const handleThemeChange = (value: boolean) => {
 	colorScheme.value = value ? "reversed" : "default";
 };
 
-const handleClosePosition = async (symbol: string) => {
+const handleClosePosition = async (
+	symbol: string,
+	openSource?: "AI交易" | "Agent Teams" | "未知来源" | "来源冲突",
+) => {
 	if (!isLoggedIn.value) {
 		addToast("未登录", "请先登录后再进行平仓操作", "warning");
 		return;
@@ -227,7 +230,7 @@ const handleClosePosition = async (symbol: string) => {
 
 	isClosing.value = true;
 
-	const response = await closePosition(symbol, password.value);
+	const response = await closePosition(symbol, password.value, openSource);
 
 	if (response.data.success && response.data.data) {
 		const pnl = response.data.data.pnl;

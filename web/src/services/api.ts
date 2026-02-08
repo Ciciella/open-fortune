@@ -33,6 +33,7 @@ export interface TradeData {
 	timestamp: string;
 	type: "open" | "close";
 	side: "long" | "short";
+	openSource?: "AI交易" | "Agent Teams" | "未知来源" | "来源冲突";
 	price: number;
 	quantity: number;
 	leverage: number;
@@ -133,14 +134,18 @@ export function fetchPrices(symbols: string[]) {
 	return requestJson<PricesResponse>(withBase(`/api/prices?symbols=${query}`));
 }
 
-export async function closePosition(symbol: string, password: string) {
+export async function closePosition(
+	symbol: string,
+	password: string,
+	openSource?: "AI交易" | "Agent Teams" | "未知来源" | "来源冲突",
+) {
 	try {
 		const response = await fetch(withBase("/api/close-position"), {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({ symbol, password }),
+			body: JSON.stringify({ symbol, password, openSource }),
 		});
 
 		const data = (await response.json()) as ClosePositionResponse;

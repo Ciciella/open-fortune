@@ -74,7 +74,7 @@
             size="small"
             type="danger"
             :disabled="isClosing"
-            @click="onClose(row.symbol)"
+            @click="onClose(row.symbol, row.openSource)"
           >
             平仓
           </el-button>
@@ -95,7 +95,10 @@ const props = defineProps<{
 	isLoggedIn: boolean;
 	isClosing: boolean;
 	isReversed: boolean;
-	onClose: (symbol: string) => void;
+	onClose: (
+		symbol: string,
+		openSource?: "AI交易" | "Agent Teams" | "未知来源" | "来源冲突",
+	) => void;
 	onLoginClick: () => void;
 }>();
 

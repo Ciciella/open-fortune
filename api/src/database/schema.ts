@@ -32,6 +32,8 @@ export interface Trade {
   pnl?: number;
   fee?: number;
   timestamp: string;
+  open_timestamp?: string;
+  open_source?: string;
   status: 'pending' | 'filled' | 'cancelled';
 }
 
@@ -120,6 +122,8 @@ CREATE TABLE IF NOT EXISTS trades (
   pnl REAL,
   fee REAL,
   timestamp TEXT NOT NULL,
+  open_timestamp TEXT,
+  open_source TEXT,
   status TEXT NOT NULL DEFAULT 'pending'
 );
 
