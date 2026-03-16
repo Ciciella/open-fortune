@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
-import AiChatPage from "../pages/AiChatPage.vue";
 import AgentTeamsPage from "../pages/AgentTeamsPage.vue";
+import AiChatPage from "../pages/AiChatPage.vue";
 import AssetPage from "../pages/AssetPage.vue";
 import ConfigPage from "../pages/ConfigPage.vue";
 import DocsPage from "../pages/DocsPage.vue";
@@ -8,7 +8,7 @@ import HomePage from "../pages/HomePage.vue";
 import MonitorPage from "../pages/MonitorPage.vue";
 
 export const router = createRouter({
-	history: createWebHistory(),
+	history: createWebHistory(import.meta.env.BASE_URL),
 	routes: [
 		{
 			path: "/",
