@@ -10,8 +10,8 @@
     const base = "/open-fortune/";
     // 如果路径以基础路径开头，则移除它
     const route = path.startsWith(base) ? path.slice(base.length) : path;
-    // 重定向到 index.html 并保留路由路径
-    window.location.replace(base + 'index.html' + (route !== '/' ? '#' + route : ''));
+    // 重定向到 index.html 并保留完整路径（使用history模式）
+    window.location.replace(base + 'index.html' + route);
   </script>
 </head>
 <body>
