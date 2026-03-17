@@ -9,9 +9,13 @@
     // 获取基础路径（从 vite.config 中的 base 配置）
     const base = "/open-fortune/";
     // 如果路径以基础路径开头，则移除它
-    const route = path.startsWith(base) ? path.slice(base.length) : path;
-    // 重定向到 index.html 并保留完整路径（使用history模式）
-    window.location.replace(base + 'index.html' + route);
+    let route = path.startsWith(base) ? path.slice(base.length) : path;
+    // 确保路由以/开头（除了根路径外）
+    if (route !== '' && !route.startsWith('/')) {
+      route = '/' + route;
+    }
+    // 重定向到 index.html 并在哈希中保存原始路由
+    window.location.replace(base + 'index.html#' + route);
   </script>
 </head>
 <body>
