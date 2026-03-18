@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <title>Open Fortune</title>
   <script>
-    const base = "/open-fortune/";
+    const base = "/open-fortune";
     const pathname = window.location.pathname.startsWith(base)
-      ? window.location.pathname.slice(base.length - 1)
+      ? window.location.pathname.slice(base.length)
       : window.location.pathname;
     const redirectPath = `${pathname}${window.location.search}${window.location.hash}`;
 
     sessionStorage.setItem("open-fortune:redirect-path", redirectPath);
-    window.location.replace(base);
+    window.location.replace(base + "/");
   </script>
 </head>
 <body>
