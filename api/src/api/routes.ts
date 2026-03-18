@@ -76,12 +76,18 @@ async function ensureTradesOpenTimestampColumn() {
 
 export function createApiRoutes() {
   const app = new Hono();
-  const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
+  const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173").split(",").map(o => o.trim());
 
   app.use("*", async (c, next) => {
-    c.header("Access-Control-Allow-Origin", corsOrigin);
+    const origin = c.req.header("Origin");
+    if (origin && corsOrigins.includes(origin)) {
+      c.header("Access-Control-Allow-Origin", origin);
+    } else if (corsOrigins.length > 0) {
+      c.header("Access-Control-Allow-Origin", corsOrigins[0]);
+    }
     c.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    c.header("Vary", "Origin");
 
     if (c.req.method === "OPTIONS") {
       return c.body(null, 204);
