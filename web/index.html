@@ -64,6 +64,20 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
+    <script>
+      (() => {
+        const storageKey = "open-fortune:redirect-path";
+        const redirectPath = sessionStorage.getItem(storageKey);
+
+        if (!redirectPath) {
+          return;
+        }
+
+        sessionStorage.removeItem(storageKey);
+        window.history.replaceState(null, "", redirectPath);
+      })();
+    </script>
+
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
